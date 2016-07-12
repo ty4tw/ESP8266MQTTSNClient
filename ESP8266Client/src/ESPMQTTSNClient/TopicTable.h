@@ -32,9 +32,8 @@
 #define TOPICTABLE_H_
 
 #include <MqttsnClientApp.h>
-#include <MQTTSNPayload.h>
-
 #include <stdio.h>
+#include <MQTTSNPayload.h>
 
 #define MQTTSN_TOPIC_MULTI_WILDCARD   1
 #define MQTTSN_TOPIC_SINGLE_WILDCARD  2

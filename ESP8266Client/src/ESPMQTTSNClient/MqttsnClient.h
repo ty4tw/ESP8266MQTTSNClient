@@ -37,9 +37,9 @@
 #include <PublishManager.h>
 #include <SubscribeManager.h>
 #include <GwProxy.h>
-#include <MQTTSNPayload.h>
 #include <stdio.h>
 #include <string.h>
+#include <MQTTSNPayload.h>
 
 using namespace std;
 
