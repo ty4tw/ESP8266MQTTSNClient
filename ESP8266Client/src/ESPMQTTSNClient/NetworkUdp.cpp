@@ -36,9 +36,8 @@ using namespace std;
 using namespace ESP8266MQTTSNClient;
 
 extern uint16_t getUint16(const uint8_t* pos);
-extern uint32_t getUint32(const uint8_t* pos);
-extern const char* MQTTSNssid;
-extern const char* MQTTSNpasswd;
+extern const char* theSsid;
+extern const char* thePasswd;
 
 /*=========================================
        Class Network
@@ -141,7 +140,7 @@ bool UdpPort::open(UdpConfig config){
 	if ( WiFi.status() != WL_CONNECTED)
 	{
 		D_NWALN("UdpPort::WiFi Attempting to connect.");
-		WiFi.begin(MQTTSNssid, MQTTSNpasswd);
+		WiFi.begin(theSsid, thePasswd);
 	}
 
 	while (WiFi.status() != WL_CONNECTED)

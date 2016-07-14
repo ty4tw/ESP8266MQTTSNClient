@@ -12,7 +12,7 @@ extern MqttsnClient* theClient;
  *
  *===========================================*/
 
-UDP_APP_CONFIG =
+UDP_APP_CONFIG = 
 {
     {
         "ESP8266-01",       //ClientId
@@ -29,8 +29,8 @@ UDP_APP_CONFIG =
     }
  };
 
-const char* MQTTSNssid = "--SSID--";
-const char* MQTTSNpasswd = "--PASS WORD--";
+const char* theSsid = "--SSID--";
+const char* thePasswd = "--PASS WORD--";
 
 /*------------------------------------------------------
  *             Create Topic
@@ -52,7 +52,8 @@ void task1(void)
   PUBLISH(topic1,pl,1);
 }
 
-void task2(void){
+void task2(void)
+{
 
 }
 
