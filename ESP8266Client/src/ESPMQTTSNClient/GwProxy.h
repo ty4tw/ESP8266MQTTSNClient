@@ -95,7 +95,7 @@ private:
 	Network     _network;
 	uint8_t*    _mqttsnMsg;
 	uint16_t    _nextMsgId;
-	const char* _clientId;
+	char        _clientId[24];
 	const char* _willTopic;
 	const char* _willMsg;
 	uint8_t     _cleanSession;

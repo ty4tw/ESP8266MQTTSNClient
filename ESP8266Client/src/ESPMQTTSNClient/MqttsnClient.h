@@ -53,7 +53,7 @@ struct OnPublishList
 };
 
 #define GETUTC() Timer::getUnixTime()
-int setUTC(MQTTSNPayload*);
+int OTA(MQTTSNPayload*);
 
 /*========================================
        Class MqttsnClient
@@ -87,7 +87,6 @@ private:
     SubscribeManager _subMgr;
     GwProxy          _gwProxy;
     bool             _sleepMode;
-    void            (*_intCallback)(void);
 };
 
 

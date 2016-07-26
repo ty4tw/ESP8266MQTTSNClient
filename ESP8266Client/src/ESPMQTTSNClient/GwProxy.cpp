@@ -43,6 +43,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <Esp.h>
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -73,13 +74,13 @@ GwProxy::~GwProxy(){
 
 void GwProxy::initialize(APP_CONFIG config){
 	_network.initialize(config.netCfg);
-	_clientId = config.netCfg.clientId;
     _willTopic = config.mqttsnCfg.willTopic;
     _willMsg = config.mqttsnCfg.willMsg;
     _qosWill = config.mqttsnCfg.willQos;
     _retainWill = config.mqttsnCfg.willRetain;
     _cleanSession = config.mqttsnCfg.cleanSession;
     _tkeepAlive = config.mqttsnCfg.keepAlive;
+    sprintf(_clientId,"%s%d",config.netCfg.clientId, ESP.getChipId());
 }
 
 void GwProxy::connect(){

@@ -159,7 +159,6 @@ bool UdpPort::open(UdpConfig config){
 	if(_udpUnicast.begin(_uPortNo) == 0){
 		return false;
 	}
-
 	return true;
 }
 

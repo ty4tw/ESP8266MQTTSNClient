@@ -93,9 +93,9 @@ void interruptCallback(void){
 /*------------------------------------------------------
  *            initialize() function
  *------------------------------------------------------*/
- void initialize(void)
+ void setup(void)
  {
-  Serial.begin(115200);
+	 Serial.begin(115200);
  }
 
 

@@ -31,7 +31,8 @@
 #ifndef MQTTSNCLIENTAPP_H_
 #define MQTTSNCLIENTAPP_H_
 
-#include <inttypes.h>
+#include <c_types.h>
+#include <cstdarg>
 /*======================================
  *      LED PIN No of Arduino
  ======================================*/
@@ -196,5 +197,6 @@ struct UdpAppConfig{
 #define MQTTSN_RC_REJECTED_NOT_SUPPORTED    0x03
 
 #define MQTTSN_TOPICID_PREDEFINED_TIME      0x01
+#define MQTTSN_TOPICID_PREDEFINED_OTA       0x0f0f
 
 #endif /* MQTTSNCLIENTAPP_H_ */
