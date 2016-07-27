@@ -36,9 +36,11 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
+#include <ESP8266HTTPUpdateServer.h>
+//#include <WiFiUdp.h>
 
 #if defined(ARDUINO) && ARDUINO >= 100
         #include <Arduino.h>
@@ -48,29 +50,59 @@
         #include <WProgram.h>
 #endif
 
-
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 
 extern void interruptCallback(void);
-extern APP_CONFIG theAppConfig;
+extern NETWORK_CONFIG;
+extern MQTTSN_CONFIG;
 extern TaskList      theTaskList[];
 extern OnPublishList theOnPublishList[];
-
+extern const char* theTopicOTA;
 /*=====================================
           MqttsnClient
  ======================================*/
 MqttsnClient* theClient = new MqttsnClient();
+bool theOTA = false;
+ESP8266WebServer httpServer(80);
+ESP8266HTTPUpdateServer httpUpdater;
 
 void loop(){
     theClient->registerInt0Callback(interruptCallback);
 	theClient->addTask();
-	theClient->initialize((APP_CONFIG) theAppConfig);
-	theClient->setSleepMode(theAppConfig.mqttsnCfg.sleep);
+	theClient->initialize(theNetworkConfig, theMqttsnConfig);
+	theClient->setSleepMode(theMqttsnConfig.sleep);
 
 	while(true){
-		theClient->run();
+		if (!theOTA) {
+			theClient->run();
+		}else{
+			WiFi.mode(WIFI_AP_STA);
+			MDNS.begin(theClient->getClientId());
+  			httpUpdater.setup(&httpServer);
+  			httpServer.begin();
+  			MDNS.addService("http", "tcp", 80);
+  			Serial.printf("Update ready! Open http://%s.local/update in your browser\n", theClient->getClientId());	
+
+			theOTA = false;
+			Timer  timeout;
+			timeout.start(600000);
+			for (;;) 
+			{
+				httpServer.handleClient();
+				if ( timeout.isTimeUp() )
+				{
+					ESP.reset();
+				}
+			}  
+		}	
 	}
+}
+
+int setOTAmode(MQTTSNPayload* pload)
+{
+  theOTA = true;
+  return 0;
 }
 
 /*=====================================
@@ -84,9 +116,9 @@ MqttsnClient::~MqttsnClient(){
     
 }
 
-void MqttsnClient::initialize(APP_CONFIG config){
+void MqttsnClient::initialize(NETCONF netconf, MqttsnConfig mqconf){
 	pinMode(ARDUINO_LED_PIN,OUTPUT);
-	_gwProxy.initialize(config);
+	_gwProxy.initialize(netconf, mqconf);
 }
 
 void MqttsnClient::registerInt0Callback(void (*callback)()){
@@ -158,11 +190,16 @@ void MqttsnClient::onConnect(void){
 	 *    subscribe() for Predefined TopicId
 	 */
 	//subscribe(MQTTSN_TOPICID_PREDEFINED_TIME, setUTC, 0, MQTTSN_TOPIC_TYPE_PREDEFINED);
-	//subscribe(MQTTSN_TOPICID_PREDEFINED_OTA, setOTAMode, 0, MQTTSN_TOPIC_TYPE_PREDEFINED);
 
 	for(uint8_t i = 0; theOnPublishList[i].pubCallback; i++){
 		subscribe(theOnPublishList[i].topic, theOnPublishList[i].pubCallback, theOnPublishList[i].qos);
 	}
+	subscribe(theTopicOTA, setOTAmode, 1);
+}
+
+char* MqttsnClient::getClientId(void)
+{
+	return _gwProxy.getClientId();
 }
 
 void MqttsnClient::indicator(bool onOff){
@@ -216,6 +253,7 @@ int MqttsnClient::sleep(void){
 }
 
 #endif
+
 
 
 

@@ -44,7 +44,6 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <Esp.h>
-
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 
@@ -69,18 +68,18 @@ GwProxy::GwProxy(){
 }
 
 GwProxy::~GwProxy(){
-
+	close();
 }
 
-void GwProxy::initialize(APP_CONFIG config){
-	_network.initialize(config.netCfg);
-    _willTopic = config.mqttsnCfg.willTopic;
-    _willMsg = config.mqttsnCfg.willMsg;
-    _qosWill = config.mqttsnCfg.willQos;
-    _retainWill = config.mqttsnCfg.willRetain;
-    _cleanSession = config.mqttsnCfg.cleanSession;
-    _tkeepAlive = config.mqttsnCfg.keepAlive;
-    sprintf(_clientId,"%s%d",config.netCfg.clientId, ESP.getChipId());
+void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
+	_network.initialize(netconf);
+	sprintf(_clientId,"%s-%x",netconf.clientId, ESP.getChipId());
+    _willTopic = mqconf.willTopic;
+    _willMsg = mqconf.willMsg;
+    _qosWill = mqconf.willQos;
+    _retainWill = mqconf.willRetain;
+    _cleanSession = mqconf.cleanSession;
+    _tkeepAlive = mqconf.keepAlive;
 }
 
 void GwProxy::connect(){
@@ -458,4 +457,12 @@ RegisterManager* GwProxy::getRegisterManager(void){
 
 void GwProxy::resetPingReqTimer(void){
 	_keepAliveTimer.start(_tkeepAlive * 1000);
+}
+
+void GwProxy::close() {
+	_network.close();
+}
+
+char* GwProxy::getClientId(void) {
+	return _clientId;
 }

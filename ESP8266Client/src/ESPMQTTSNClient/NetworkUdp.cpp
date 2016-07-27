@@ -36,6 +36,7 @@ using namespace std;
 using namespace ESP8266MQTTSNClient;
 
 extern uint16_t getUint16(const uint8_t* pos);
+extern uint32_t getUint32(const uint8_t* pos);
 extern const char* theSsid;
 extern const char* thePasswd;
 
@@ -106,7 +107,7 @@ void Network::resetGwAddress(void){
 }
 
 
-bool Network::initialize(NETWORK_CONFIG  config){
+bool Network::initialize(NETCONF  config){
 	return UdpPort::open(config);
 }
 
@@ -140,6 +141,7 @@ bool UdpPort::open(UdpConfig config){
 	if ( WiFi.status() != WL_CONNECTED)
 	{
 		D_NWALN("UdpPort::WiFi Attempting to connect.");
+		WiFi.mode(WIFI_STA);
 		WiFi.begin(theSsid, thePasswd);
 	}
 
@@ -159,6 +161,7 @@ bool UdpPort::open(UdpConfig config){
 	if(_udpUnicast.begin(_uPortNo) == 0){
 		return false;
 	}
+
 	return true;
 }
 
@@ -252,6 +255,7 @@ int UdpPort::recvfrom ( uint8_t* buf, uint16_t len, int flags, uint32_t* ipAddre
 bool UdpPort::isUnicast(){
 	return ( _castStat == STAT_UNICAST);
 }
+
 
 
 

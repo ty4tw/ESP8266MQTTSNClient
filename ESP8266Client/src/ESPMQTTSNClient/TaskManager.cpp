@@ -39,6 +39,7 @@
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 extern MqttsnClient* theClient;
+
 /*=====================================
            TaskManager
  ======================================*/

@@ -67,9 +67,10 @@ public:
 	GwProxy();
 	~GwProxy();
 
-	void     initialize(APP_CONFIG config);
+	void     initialize(NETCONF netconf, MqttsnConfig mqconf);
 	void     connect(void);
 	void     disconnect(uint16_t sec = 0);
+	void     close(void);
 	int      getMessage(void);
 	uint16_t registerTopic(char* topic, uint16_t toipcId);
 
@@ -84,6 +85,7 @@ public:
 	uint16_t getNextMsgId();
 	TopicTable* getTopicTable(void);
 	RegisterManager* getRegisterManager(void);
+	char*    getClientId(void);
 private:
 	int      readMsg(void);
 	void     writeGwMsg(void);
@@ -122,3 +124,4 @@ private:
 
 } /* ESP8266MQTTSNClient */
 #endif /* GWPROXY_H_ */
+

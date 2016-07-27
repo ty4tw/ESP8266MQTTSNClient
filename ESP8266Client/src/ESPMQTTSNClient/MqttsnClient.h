@@ -53,7 +53,7 @@ struct OnPublishList
 };
 
 #define GETUTC() Timer::getUnixTime()
-int OTA(MQTTSNPayload*);
+int setUTC(MQTTSNPayload*);
 
 /*========================================
        Class MqttsnClient
@@ -68,12 +68,13 @@ public:
     void subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType);
     void unsubscribe(const char* topicName);
     void disconnect(uint16_t sleepInSecs);
-    void initialize(APP_CONFIG config);
+    void initialize(NETCONF netconf, MqttsnConfig mqconf);
     void run(void);
     int  sleep(void);
     void registerInt0Callback(void (*callback)());
     void addTask(void);
     void setSleepMode(bool mode);
+	char* getClientId(void);
     GwProxy*          getGwProxy(void);
     PublishManager*   getPublishManager(void);
     SubscribeManager* getSubscribeManager(void);
@@ -87,6 +88,7 @@ private:
     SubscribeManager _subMgr;
     GwProxy          _gwProxy;
     bool             _sleepMode;
+    void            (*_intCallback)(void);
 };
 
 

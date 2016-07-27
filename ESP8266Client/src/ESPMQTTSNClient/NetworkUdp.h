@@ -33,7 +33,6 @@
 
 #include <inttypes.h>
 #include <MqttsnClientApp.h>
-
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 
@@ -65,12 +64,10 @@ public:
 	int multicast( const uint8_t* buf, uint32_t length );
 	int recv(uint8_t* buf, uint16_t len, bool nonblock, uint32_t* ipaddress, uint16_t* port );
 	int recv(uint8_t* buf, int flags);
-	bool checkRecvBuf();
-	bool isUnicast();
-
+	bool checkRecvBuf(void);
+	bool isUnicast(void);
+	void close(void);
 private:
-	void close();
-
 	int recvfrom ( uint8_t* buf, uint16_t len, int flags, uint32_t* ipaddress, uint16_t* port );
 	WiFiUDP    _udpUnicast;
 	WiFiUDP    _udpMulticast;
@@ -99,8 +96,9 @@ public:
     void setGwAddress(void);
     void resetGwAddress(void);
     void setFixedGwAddress(void);
-    bool initialize(NETWORK_CONFIG  config);
+    bool initialize(NETCONF  config);
     uint8_t*  getMessage(int* len);
+void close(void);
 private:
     void setSleep();
     int  readApiFrame(void);

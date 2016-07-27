@@ -31,8 +31,7 @@
 #ifndef MQTTSNCLIENTAPP_H_
 #define MQTTSNCLIENTAPP_H_
 
-#include <c_types.h>
-#include <cstdarg>
+#include <inttypes.h>
 /*======================================
  *      LED PIN No of Arduino
  ======================================*/
@@ -41,7 +40,7 @@
 /*======================================
  *         Debug Flag
  ======================================*/
-#define DEBUG_NW
+//#define DEBUG_NW
 #define DEBUG_MQTTSN
 
 /****************************************
@@ -78,18 +77,13 @@ struct UdpConfig{
 	uint16_t uPortNo;
 };
 
-struct UdpAppConfig{
-	UdpConfig netCfg;
-	MqttsnConfig mqttsnCfg;
-};
-
 /*======================================
       MACROs for Application
 =======================================*/
 
-#define UDP_APP_CONFIG        UdpAppConfig   theAppConfig
-#define APP_CONFIG            UdpAppConfig
-#define NETWORK_CONFIG        UdpConfig
+#define MQTTSN_CONFIG    MqttsnConfig  theMqttsnConfig
+#define NETWORK_CONFIG   UdpConfig theNetworkConfig
+#define NETCONF          UdpConfig
 
 #define PUBLISH(...)     theClient->publish(__VA_ARGS__)
 #define SUBSCRIBE(...)   theClient->subscribe(__VA_ARGS__)
