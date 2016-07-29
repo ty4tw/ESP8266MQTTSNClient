@@ -37,18 +37,8 @@
 #include <inttypes.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
-#include <ESP8266HTTPUpdateServer.h>
-//#include <WiFiUdp.h>
-
-#if defined(ARDUINO) && ARDUINO >= 100
-        #include <Arduino.h>
-#endif
-
-#if defined(ARDUINO) && ARDUINO < 100
-        #include <WProgram.h>
-#endif
+#include <ArduinoOTA.h>
+#include <Arduino.h>
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -59,51 +49,92 @@ extern MQTTSN_CONFIG;
 extern TaskList      theTaskList[];
 extern OnPublishList theOnPublishList[];
 extern const char* theTopicOTA;
+extern const char* theOTAPasswd;
+extern uint16_t    theOTAportNo;
+extern const char* theSsid;
+extern const char* thePasswd;
 /*=====================================
           MqttsnClient
  ======================================*/
 MqttsnClient* theClient = new MqttsnClient();
-bool theOTA = false;
-ESP8266WebServer httpServer(80);
-ESP8266HTTPUpdateServer httpUpdater;
+static bool theOTAflag = false;
+
+int setOTAmode(MQTTSNPayload* pload)
+{
+  theOTAflag = true;
+  return 0;
+}
+
+void setOTAServer(void)
+{
+	theClient->getGwProxy()->close();
+	WiFi.disconnect();
+	D_NWALN("UdpPort::WiFi Attempting to reconnect.");
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(theSsid, thePasswd);
+
+	while (WiFi.status() != WL_CONNECTED)
+	{
+		delay(500);
+		Serial.print(".");
+	}
+
+	ArduinoOTA.setPort(theOTAportNo);
+	ArduinoOTA.setHostname(theClient->getClientId());
+	ArduinoOTA.setPassword(theOTAPasswd);
+
+	ArduinoOTA.onStart([]() {
+	Serial.println("Start");
+	});
+	ArduinoOTA.onEnd([]() {
+	Serial.println("\nEnd");
+	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+	Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+	});
+	ArduinoOTA.onError([](ota_error_t error) {
+	Serial.printf("Error[%u]: ", error);
+	if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+	else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+	else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+	else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+	else if (error == OTA_END_ERROR) Serial.println("End Failed");
+	});
+
+	ArduinoOTA.begin();
+	Serial.println("Ready");
+	Serial.print("IP address: ");
+	Serial.println(WiFi.localIP());
+}
 
 void loop(){
-    theClient->registerInt0Callback(interruptCallback);
+	theClient->registerInt0Callback(interruptCallback);
 	theClient->addTask();
 	theClient->initialize(theNetworkConfig, theMqttsnConfig);
 	theClient->setSleepMode(theMqttsnConfig.sleep);
 
 	while(true){
-		if (!theOTA) {
-			theClient->run();
-		}else{
-			WiFi.mode(WIFI_AP_STA);
-			MDNS.begin(theClient->getClientId());
-  			httpUpdater.setup(&httpServer);
-  			httpServer.begin();
-  			MDNS.addService("http", "tcp", 80);
-  			Serial.printf("Update ready! Open http://%s.local/update in your browser\n", theClient->getClientId());	
+		if ( theOTAflag )
+		{
+			setOTAServer();
 
-			theOTA = false;
-			Timer  timeout;
-			timeout.start(600000);
-			for (;;) 
+			for(;;)
 			{
-				httpServer.handleClient();
-				if ( timeout.isTimeUp() )
-				{
-					ESP.reset();
-				}
-			}  
-		}	
+				ArduinoOTA.handle();
+			}
+		}
+		else
+		{
+			theClient->run();
+			if ( theOTAflag )
+			{
+				Serial.printf("OTA Ready!!!!!\n");
+			}
+		}
 	}
 }
 
-int setOTAmode(MQTTSNPayload* pload)
-{
-  theOTA = true;
-  return 0;
-}
+
 
 /*=====================================
         Class MqttsnClient

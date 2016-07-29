@@ -96,9 +96,9 @@ public:
     void setGwAddress(void);
     void resetGwAddress(void);
     void setFixedGwAddress(void);
-    bool initialize(NETCONF  config);
+    bool open(NETCONF  config);
+    void close(void);
     uint8_t*  getMessage(int* len);
-void close(void);
 private:
     void setSleep();
     int  readApiFrame(void);
@@ -108,7 +108,7 @@ private:
 	uint32_t _ipAddress;
 	uint16_t _portNo;
     int     _returnCode;
-    bool _sleepflg;
+    bool    _sleepflg;
     uint8_t _rxDataBuf[MQTTSN_MAX_PACKET_SIZE + 1];  // defined in MqttsnClientApp.h
 
 };

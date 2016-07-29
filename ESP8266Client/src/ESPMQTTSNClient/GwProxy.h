@@ -85,6 +85,7 @@ public:
 	uint16_t getNextMsgId();
 	TopicTable* getTopicTable(void);
 	RegisterManager* getRegisterManager(void);
+	void     open(NETCONF netconf);
 	char*    getClientId(void);
 private:
 	int      readMsg(void);

@@ -72,14 +72,14 @@ GwProxy::~GwProxy(){
 }
 
 void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
-	_network.initialize(netconf);
-	sprintf(_clientId,"%s-%x",netconf.clientId, ESP.getChipId());
+	_network.open(netconf);
     _willTopic = mqconf.willTopic;
     _willMsg = mqconf.willMsg;
     _qosWill = mqconf.willQos;
     _retainWill = mqconf.willRetain;
     _cleanSession = mqconf.cleanSession;
     _tkeepAlive = mqconf.keepAlive;
+	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
 }
 
 void GwProxy::connect(){
@@ -461,6 +461,10 @@ void GwProxy::resetPingReqTimer(void){
 
 void GwProxy::close() {
 	_network.close();
+}
+
+void GwProxy::open(NETCONF netconf) {
+	_network.open(netconf);
 }
 
 char* GwProxy::getClientId(void) {

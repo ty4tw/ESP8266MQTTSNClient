@@ -107,8 +107,13 @@ void Network::resetGwAddress(void){
 }
 
 
-bool Network::initialize(NETCONF  config){
+bool Network::open(NETCONF  config){
 	return UdpPort::open(config);
+}
+
+void Network::close(void)
+{
+	UdpPort::close();
 }
 
 void Network::setSleep(){
