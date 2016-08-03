@@ -28,18 +28,10 @@
  */
 
 
-#include <MqttsnClientApp.h>
-#include <MqttsnClient.h>
-#include <GwProxy.h>
-
-#if defined(ARDUINO) && ARDUINO >= 100
-        #include <Arduino.h>
-#endif
-
-#if defined(ARDUINO) && ARDUINO < 100
-        #include <WProgram.h>
-#endif
-
+#include "MqttsnClientApp.h"
+#include "MqttsnClient.h"
+#include "GwProxy.h"
+#include <Arduino.h>
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>

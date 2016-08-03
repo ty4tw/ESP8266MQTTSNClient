@@ -31,11 +31,11 @@
 #ifndef GWPROXY_H_
 #define GWPROXY_H_
 
-#include <MqttsnClientApp.h>
-#include <NetworkUdp.h>
-#include <Timer.h>
-#include <RegisterManager.h>
-#include <TopicTable.h>
+#include "MqttsnClientApp.h"
+#include "NetworkUdp.h"
+#include "Timer.h"
+#include "RegisterManager.h"
+#include "TopicTable.h"
 
 #include <stdio.h>
 #include <string.h>

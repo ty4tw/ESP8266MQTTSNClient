@@ -31,15 +31,15 @@
 #ifndef MQTTSNCLIENT_H_
 #define MQTTSNCLIENT_H_
 
-#include <MqttsnClientApp.h>
-#include <Timer.h>
-#include <TaskManager.h>
-#include <PublishManager.h>
-#include <SubscribeManager.h>
-#include <GwProxy.h>
+#include "MqttsnClientApp.h"
+#include "Timer.h"
+#include "TaskManager.h"
+#include "PublishManager.h"
+#include "SubscribeManager.h"
+#include "GwProxy.h"
 #include <stdio.h>
 #include <string.h>
-#include <MQTTSNPayload.h>
+#include "MQTTSNPayload.h"
 
 using namespace std;
 
