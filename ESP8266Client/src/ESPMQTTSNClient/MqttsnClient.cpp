@@ -63,11 +63,12 @@ extern int theSNTPinterval;
 MqttsnClient* theClient = new MqttsnClient();
 bool theOTAflag = false;
 
+/*
 int setOTAmode(MQTTSNPayload* pload)
 {
 	theOTAflag = true;
 	return 0;
-}
+}*/
 
 void setOTAServer(void)
 {
@@ -130,12 +131,13 @@ void loop()
 		{
 			MQTTSNPayload* pl = new MQTTSNPayload(20);
 			pl->set_str(WiFi.localIP().toString().c_str());
-			theClient->publish(TOPIC_OTA_READY, pl, 1, false);
+			pl->set_uint32(theOTAportNo);
+			theClient->publish(0x002, pl, 1);
 			theClient->run();
 
 			WiFi.disconnect();
 			setOTAServer();
-			for (int i = 0; i < 30000; i++)
+			for (int i = 0; i < 12000; i++)
 			{
 				ArduinoOTA.handle();
 				delay(10);
@@ -266,14 +268,6 @@ void MqttsnClient::run(void)
 
 void MqttsnClient::onConnect(void)
 {
-
-	/*   subscribe() for Predefined TopicIds in here */
-
-	/*   subscribe the OTA topic  */
-	String topicOta = theClient->getClientId();
-	topicOta += TOPIC_OTA_READY;
-	subscribe(topicOta.c_str(), setOTAmode, 1);
-
 	/*   subscribe topics in SUBSCRIBE_LIST  */
 	for (uint8_t i = 0; theOnPublishList[i].pubCallback; i++)
 	{
@@ -298,44 +292,9 @@ void MqttsnClient::indicator(bool onOff)
 	}
 }
 
-#ifdef ARDUINO
-
-//https://github.com/LowPowerLab/LowPower
-
-int MqttsnClient::sleep(void)
-{
-	// Enter idle state for 8 s with the rest of peripherals turned off
-	// Each microcontroller comes with different number of peripherals
-	// Comment off line of code where necessary
-
-#define SLEEP_TIME SLEEP_1S
-	uint32_t sec = 1;
-	/*
-	 // ATmega328P, ATmega168
-	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF,
-	 SPI_OFF, USART0_OFF, TWI_OFF);
-	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
-
-	 // ATmega32U4
-	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER4_OFF, TIMER3_OFF, TIMER1_OFF,
-	 //		  TIMER0_OFF, SPI_OFF, USART1_OFF, TWI_OFF, USB_OFF);
-	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
-
-	 // ATmega2560
-	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER5_OFF, TIMER4_OFF, TIMER3_OFF,
-	 //		  TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART3_OFF,
-	 //		  USART2_OFF, USART1_OFF, USART0_OFF, TWI_OFF);
-	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
-	 */
-	return 0;
-}
-
-#else
-
 int MqttsnClient::sleep(void)
 {
 	return 0;
 }
 
-#endif
 

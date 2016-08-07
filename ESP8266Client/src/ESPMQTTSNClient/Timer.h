@@ -31,14 +31,8 @@
 #ifndef TIMER_H_
 #define TIMER_H_
 
-#if defined(ARDUINO) && ARDUINO >= 100
-        #include <Arduino.h>
-#elif defined(ARDUINO) && ARDUINO < 100
-        #include <WProgram.h>
-#endif
-
+#include <Arduino.h>
 #include <MqttsnClientApp.h>
-#include <inttypes.h>
 
 namespace ESP8266MQTTSNClient {
 
@@ -54,7 +48,6 @@ public:
     bool isTimeUp(void);
     void stop();
     static uint32_t getUnixTime(void);
-    //static void setUnixTime(uint32_t utc);
 	static void setStopTimeDuration(uint32_t msec);
     static void initialize(uint32_t timezone, uint32_t daylightOffset_sec, const char* server1, const char* server2, const char* server3, uint32_t interval);
     static bool update(void);

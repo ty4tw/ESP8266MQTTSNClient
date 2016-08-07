@@ -320,11 +320,6 @@ int GwProxy::writeMsg(const uint8_t* msg){
 	}else{
 		rc = _network.unicast(msg,len);
 	}
-/*
-	if (rc > 0){
-		return rc;
-	}
-*/
 	return rc;
 
 }
@@ -404,8 +399,6 @@ void GwProxy::checkPingReq(void){
 	if (_status == GW_CONNECTED && _keepAliveTimer.isTimeUp() && _pingStatus != GW_WAIT_PINGRESP){
 		_pingStatus = GW_WAIT_PINGRESP;
         _pingRetryCount = MQTTSN_RETRY_COUNT;
-
-       Serial.printf("PINGREQ status=%d\n", writeMsg((const uint8_t*)msg));
         _pingSendUTC = Timer::getUnixTime();
 	}else if (_pingStatus == GW_WAIT_PINGRESP){
         if (_pingSendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){

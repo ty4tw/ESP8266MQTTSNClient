@@ -48,12 +48,12 @@ namespace ESP8266MQTTSNClient {
 struct OnPublishList
 {
 	const char* topic;
-	int (*pubCallback)(MQTTSNPayload*);
+	int (*pubCallback)(uint8_t* payload, uint16_t payloadlen);
 	uint8_t qos;
 };
 
 #define GETUTC() Timer::getUnixTime()
-int setUTC(MQTTSNPayload*);
+//int setUTC(MQTTSNPayload*);
 
 /*========================================
        Class MqttsnClient

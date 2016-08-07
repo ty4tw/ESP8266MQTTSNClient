@@ -65,9 +65,9 @@ TopicCallback Topic::getCallback(void){
 	return _callback;
 }
 
-int Topic::execCallback(MQTTSNPayload* payload){
+int Topic::execCallback(uint8_t* payload, uint16_t payloadlen){
     if(_callback != 0){
-        return _callback(payload);
+        return _callback(payload, payloadlen);
     }
     return 0;
 }
@@ -205,10 +205,10 @@ bool TopicTable::setCallback(uint16_t topicId, uint8_t topicType, TopicCallback 
 }
 
 
-int TopicTable::execCallback(uint16_t  topicId, MQTTSNPayload* payload, uint8_t topicType){
+int TopicTable::execCallback(uint16_t  topicId, uint8_t* payload, uint16_t payloadlen, uint8_t topicType){
 	Topic* p = getTopic(topicId, topicType);
 	if (p){;
-		return p->execCallback(payload);
+		return p->execCallback(payload, payloadlen);
 	}
 	return 0;
 }
