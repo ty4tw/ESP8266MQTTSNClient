@@ -177,6 +177,7 @@ void RegisterManager::responceRegAck(uint16_t msgId, uint16_t topicId){
 		theClient->getGwProxy()->getTopicTable()->setTopicId((char*)topicName, topicId, topicType);  // Add Topic to TopicTable
 		RegQueElement* elm = getElement(msgId);
 		remove(elm);
+		Serial.printf("responce REGACK line 183\n");
 		theClient->getPublishManager()->sendSuspend((char*)topicName, topicId, topicType );
 	}
 }
@@ -204,12 +205,14 @@ uint8_t  RegisterManager::checkTimeout(void){
 	RegQueElement* elm = _first;
 	RegQueElement* sav;
 	while (elm){
+		Serial.printf(" RegisterManager::checkTimeout line209\n");
 		if ( elm->sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
 			if (elm->retryCount >= 0){
 				send(elm);
 			}else{
 				if (elm->next){
 					sav = elm->prev;
+					Serial.printf(" RegisterManager::checkTimeout line216\n");
 					remove(elm);
 					if(sav){
 						elm = sav;
@@ -217,6 +220,7 @@ uint8_t  RegisterManager::checkTimeout(void){
 						break;
 					}
 				}else{
+					Serial.printf(" RegisterManager::checkTimeout line224\n");
 					remove(elm);
 					break;
 				}

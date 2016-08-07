@@ -39,8 +39,6 @@
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 
-#define TIMEGAP1900_1970 2208988800UL
-
 /*=====================================
         Class Timer
  =====================================*/
@@ -82,14 +80,6 @@ void Timer::stop(){
     _millis = 0;
     _currentTime = 0;
 }
-
-/*
-void Timer::setUnixTime(uint32_t utc){
-    _epochTime = millis();
-    _timerStopTimeAccum = 0;
-    _unixTime = utc;
-}
-*/
 
 uint32_t Timer::getUnixTime(){
     uint32_t tm = _timerStopTimeAccum + millis();

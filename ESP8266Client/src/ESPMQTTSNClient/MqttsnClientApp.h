@@ -40,8 +40,9 @@
 /*======================================
  *         Debug Flag
  ======================================*/
-//#define DEBUG_NW
+#define DEBUG_NW
 #define DEBUG_MQTTSN
+#define DEBUG_OTA
 
 /****************************************
       MQTT-SN Parameters
@@ -102,39 +103,21 @@ struct UdpConfig{
       MACROs for debugging
 ========================================*/
 #ifndef DEBUG_NW
-	#define D_NWA(...)
-    #define D_NWALN(...)
-	#define D_NWL(...)
+	#define D_NWLOG(...)
+#else
+	#define D_NWLOG(...)    Serial.printf(__VA_ARGS__)
 #endif
 
 #ifndef DEBUG_MQTTSN
-	#define D_MQTTA(...)
-	#define D_MQTTALN(...)
-	#define D_MQTTL(...)
+	#define D_MQTTLOG(...)
+#else
+	#define D_MQTTLOG(...)  Serial.printf(__VA_ARGS__)
 #endif
 
-#if defined(DEBUG_NW) && defined(ARDUINO)
-	#define D_NWA(...)    Serial.print(__VA_ARGS__)
-	#define D_NWALN(...)  Serial.println(__VA_ARGS__)
-	#define D_NWL(...)
-#endif
-
-#if defined(DEBUG_NW) && ! defined(ARDUINO)
-	#define D_NWA(...)
-	#define D_NWALN(...)
-	#define D_NWL(...)    printf(__VA_ARGS__)
-#endif
-
-#if defined(DEBUG_MQTTSN) && defined(ARDUINO)
-    #define D_MQTTA(...)  Serial.print(__VA_ARGS__)
-	#define D_MQTTALN(...)  Serial.println(__VA_ARGS__)
-	#define D_MQTTL(...)
-#endif
-
-#if defined(DEBUG_MQTTSN) && ! defined(ARDUINO)
-	#define D_MQTTA(...)
-	#define D_MQTTALN(...)
-    #define D_MQTTL(...)  printf(__VA_ARGS__)
+#ifndef DEBUG_OTA
+	#define D_OTALOG(...)
+#else
+	#define D_OTALOG(...)   Serial.printf(__VA_ARGS__)
 #endif
 
 /*======================================

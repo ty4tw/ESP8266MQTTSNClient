@@ -65,7 +65,7 @@ GwProxy::~GwProxy(){
 
 void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
 	_network.initialize(netconf);
-	sprintf(_clientId,"%s-%x",netconf.clientId, ESP.getChipId());
+	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
     _willTopic = mqconf.willTopic;
     _willMsg = mqconf.willMsg;
     _qosWill = mqconf.willQos;
@@ -169,7 +169,6 @@ int GwProxy::getConnectResponce(void){
 }
 
 void GwProxy::reconnect(void){
-	//D_MQTTL("...Gateway reconnect\r\n");
 	_status = GW_DISCONNECTED;
 	connect();
 }
@@ -233,14 +232,12 @@ int GwProxy::getMessage(void){
 	}
 #ifdef DEBUG_MQTTSN
 	if (len){
-		D_MQTTA(F(" recved msgType "));
-		D_MQTTA(_mqttsnMsg[0], HEX);
-		D_MQTTALN();
-		D_MQTTL(" recved msgType %x\n", _mqttsnMsg[0]);
+		D_MQTTLOG(" recved msgType %x\n", _mqttsnMsg[0]);
 	}
 #endif
 
 	if (len == 0){
+		connect();
 		// Check PINGREQ required
 		checkPingReq();
 
@@ -323,13 +320,13 @@ int GwProxy::writeMsg(const uint8_t* msg){
 	}else{
 		rc = _network.unicast(msg,len);
 	}
-
+/*
 	if (rc > 0){
 		return rc;
 	}
-	//_status = GW_LOST;
-	//_gwId = 0;
+*/
 	return rc;
+
 }
 
 void GwProxy::writeGwMsg(void){
@@ -400,7 +397,7 @@ uint16_t GwProxy::getNextMsgId(void){
 }
 
 void GwProxy::checkPingReq(void){
-    uint8_t msg[2];
+	uint8_t msg[2];
 	msg[0] = 0x02;
 	msg[1] = MQTTSN_TYPE_PINGREQ;
     
@@ -408,20 +405,19 @@ void GwProxy::checkPingReq(void){
 		_pingStatus = GW_WAIT_PINGRESP;
         _pingRetryCount = MQTTSN_RETRY_COUNT;
 
-		writeMsg((const uint8_t*)msg);
+       Serial.printf("PINGREQ status=%d\n", writeMsg((const uint8_t*)msg));
         _pingSendUTC = Timer::getUnixTime();
 	}else if (_pingStatus == GW_WAIT_PINGRESP){
         if (_pingSendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
     		if (--_pingRetryCount > 0){
-				writeMsg((const uint8_t*)_msg);
+				writeMsg((const uint8_t*)msg);
 				_pingSendUTC = Timer::getUnixTime();
 			}else{
 				_status = GW_LOST;
 				_gwId = 0;
                 _pingStatus = 0;
                 _keepAliveTimer.stop();
-                D_MQTTA(F("   !!! PINGREQ Timeout\n"));
-                D_MQTTL("   !!! PINGREQ Timeout\n");
+                D_MQTTLOG("   !!! PINGREQ Timeout\n");
 			}
 		}
 	}
@@ -434,8 +430,7 @@ void GwProxy::checkAdvertise(void){
 		_pingStatus = 0;
 		_gwAliveTimer.stop();
 		_keepAliveTimer.stop();
-		D_MQTTA(F("   !!! ADVERTISE Timeout\n"));
-		D_MQTTL("   !!! ADVERTISE Timeout\n");
+		D_MQTTLOG("   !!! ADVERTISE Timeout\n");
 	}
 }
 

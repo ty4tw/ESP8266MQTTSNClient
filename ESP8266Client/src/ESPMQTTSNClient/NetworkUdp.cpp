@@ -64,7 +64,7 @@ int  Network::unicast(const uint8_t* xmitData, uint16_t dataLen){
 uint8_t*  Network::getMessage(int* len){
 	*len = 0;
 	if (checkRecvBuf()){
-		D_NWALN("Network::getMessage() data received..");
+		D_NWLOG("Network::getMessage() data received..\n");
 		uint16_t recvLen = UdpPort::recv(_rxDataBuf, MQTTSN_MAX_PACKET_SIZE, false, &_ipAddress, &_portNo);
 		if(_gwIpAddress && isUnicast() && (_ipAddress != _gwIpAddress) && (_portNo != _gwPortNo))
 		{
@@ -140,7 +140,7 @@ bool UdpPort::open(UdpConfig config){
 
 	if ( WiFi.status() != WL_CONNECTED)
 	{
-		D_NWALN("UdpPort::WiFi Attempting to connect.");
+		D_NWLOG("UdpPort::WiFi Attempting to connect.\n");
 		WiFi.mode(WIFI_STA);
 		WiFi.begin(theSsid, thePasswd);
 	}
@@ -148,10 +148,9 @@ bool UdpPort::open(UdpConfig config){
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
-		D_NWA(".");
+		D_NWLOG(".");
 	}
-	D_NWALN();
-	D_NWALN("UdpPort::WiFi Connected");
+	D_NWLOG("UdpPort::WiFi Connected\n");
 
 	_cIpAddr = WiFi.localIP();
 
@@ -174,12 +173,11 @@ int UdpPort::unicast(const uint8_t* buf, uint32_t length, uint32_t ipAddress, ui
 
 #ifdef DEBUG_NW
 	if( status == 1){
-		D_NWA("UNICAST [ ");
+		D_NWLOG("UNICAST [ ");
 		for(uint16_t i = 0; i < length ; i++){
-			D_NWA(*(buf + i), HEX);
-			D_NWA(" ");
+			D_NWLOG("%02x ",*(buf + i));
 		}
-		D_NWALN("]");
+		D_NWLOG("]\n");
 	}
 #endif
 
@@ -194,12 +192,11 @@ int UdpPort::multicast( const uint8_t* buf, uint32_t length ){
 
 #ifdef DEBUG_NW
 	if( status == 1 ){
-		D_NWA("MLTCAST [ ");
+		D_NWLOG("MULCAST [ ");
 		for(uint16_t i = 0; i < length ; i++){
-			D_NWA(*(buf + i), HEX);
-			D_NWA(" ");
+			D_NWLOG("%02x ",*(buf + i));
 		}
-		D_NWALN("]");
+		D_NWLOG("]\n");
 	}
 #endif
 
@@ -241,12 +238,11 @@ int UdpPort::recvfrom ( uint8_t* buf, uint16_t len, int flags, uint32_t* ipAddre
 	*ipAddressPtr = (const uint32_t)remoteIp;
 
 #ifdef DEBUG_NW
-	D_NWA("RECIEVE [ ");
+	D_NWLOG("RECIEVE [ ");
 	for(uint16_t i = 0; i < packLen ; i++){
-		D_NWA( *(buf + i), HEX);
-		D_NWA(" ");
+		D_NWLOG("%02x ",*(buf + i));
 	}
-	D_NWALN("]");
+	D_NWLOG("]\n");
 #endif
 
 	return packLen;

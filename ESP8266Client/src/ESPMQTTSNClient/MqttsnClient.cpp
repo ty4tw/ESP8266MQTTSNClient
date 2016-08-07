@@ -46,28 +46,27 @@ using namespace ESP8266MQTTSNClient;
 extern void interruptCallback(void);
 extern NETWORK_CONFIG;
 extern MQTTSN_CONFIG;
-extern TaskList      theTaskList[];
+extern TaskList theTaskList[];
 extern OnPublishList theOnPublishList[];
 extern const char* theTopicOTA;
 extern const char* theOTAPasswd;
-extern uint16_t    theOTAportNo;
+extern uint16_t theOTAportNo;
 extern const char* theSsid;
 extern const char* thePasswd;
 extern const char* theSNTPserver;
-extern int theTimeZone;
 extern int theSNTPinterval;
 
 #define TOPIC_OTA_READY  "/ota"
 /*=====================================
-          MqttsnClient
+ MqttsnClient
  ======================================*/
 MqttsnClient* theClient = new MqttsnClient();
 bool theOTAflag = false;
 
 int setOTAmode(MQTTSNPayload* pload)
 {
-  theOTAflag = true;
-  return 0;
+	theOTAflag = true;
+	return 0;
 }
 
 void setOTAServer(void)
@@ -78,47 +77,56 @@ void setOTAServer(void)
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
-		Serial.print(".");
+		D_OTALOG(".");
 	}
 
 	ArduinoOTA.setPort(theOTAportNo);
 	ArduinoOTA.setHostname(theClient->getClientId());
 	ArduinoOTA.setPassword(theOTAPasswd);
 
-	ArduinoOTA.onStart([]() {
-    Serial.println("Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-  Serial.println("OTA Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+	ArduinoOTA.onStart([]()
+	{
+		D_OTALOG("Start");
+		return;
+	});
+	ArduinoOTA.onEnd([]()
+	{
+		D_OTALOG("\nEnd");
+		return;
+	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+	{
+		D_OTALOG("Progress: %u%%\r", (progress / (total / 100)));
+		return;
+	});
+	ArduinoOTA.onError([](ota_error_t error)
+	{
+		D_OTALOG("Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) D_OTALOG("Auth Failed");
+		else if (error == OTA_BEGIN_ERROR) D_OTALOG("Begin Failed");
+		else if (error == OTA_CONNECT_ERROR) D_OTALOG("Connect Failed");
+		else if (error == OTA_RECEIVE_ERROR) D_OTALOG("Receive Failed");
+		else if (error == OTA_END_ERROR) D_OTALOG("End Failed");
+		return;
+	});
+	ArduinoOTA.begin();
+	D_OTALOG("OTA Ready!  IP address: ");
+	D_OTALOG("%s\n", WiFi.localIP().toString().c_str());
 }
 
-void loop(){
+void loop()
+{
 	theClient->registerInt0Callback(interruptCallback);
 	theClient->addTask();
 	theClient->initialize(theNetworkConfig, theMqttsnConfig);
 	Timer::initialize(0, 0, theSNTPserver, NULL, NULL, theSNTPinterval);
 	theClient->setSleepMode(theMqttsnConfig.sleep);
 
-	while(true){
+	while (true)
+	{
 		Timer::update();
 		theClient->run();
-		if ( theOTAflag )
+		if (theOTAflag)
 		{
 			MQTTSNPayload* pl = new MQTTSNPayload(20);
 			pl->set_str(WiFi.localIP().toString().c_str());
@@ -127,110 +135,133 @@ void loop(){
 
 			WiFi.disconnect();
 			setOTAServer();
-			for(int i = 0; i < 30000; i++)
+			for (int i = 0; i < 30000; i++)
 			{
 				ArduinoOTA.handle();
 				delay(10);
 			}
-			Serial.println("Timeout!!!");
+			D_OTALOG("Timeout!!!");
 			ESP.reset();
 		}
 	}
 }
 
-
-
 /*=====================================
-        Class MqttsnClient
+ Class MqttsnClient
  ======================================*/
-MqttsnClient::MqttsnClient(){
-    _intCallback = 0;
+MqttsnClient::MqttsnClient()
+{
+	_intCallback = 0;
 }
 
-MqttsnClient::~MqttsnClient(){
-    
+MqttsnClient::~MqttsnClient()
+{
+
 }
 
-void MqttsnClient::initialize(NETCONF netconf, MqttsnConfig mqconf){
-	pinMode(ARDUINO_LED_PIN,OUTPUT);
+void MqttsnClient::initialize(NETCONF netconf, MqttsnConfig mqconf)
+{
+	pinMode(ARDUINO_LED_PIN, OUTPUT);
 	_gwProxy.initialize(netconf, mqconf);
 }
 
-void MqttsnClient::registerInt0Callback(void (*callback)()){
-    _intCallback = callback;
+void MqttsnClient::registerInt0Callback(void (*callback)())
+{
+	_intCallback = callback;
 }
 
-void MqttsnClient::addTask(void){
-    _taskMgr.add(theTaskList);
+void MqttsnClient::addTask(void)
+{
+	_taskMgr.add(theTaskList);
 }
 
-void MqttsnClient::setSleepMode(bool mode){
-    _sleepMode = mode;
+void MqttsnClient::setSleepMode(bool mode)
+{
+	_sleepMode = mode;
 }
 
-GwProxy* MqttsnClient::getGwProxy(void){
-    return &_gwProxy;
+GwProxy* MqttsnClient::getGwProxy(void)
+{
+	return &_gwProxy;
 }
 
-PublishManager* MqttsnClient::getPublishManager(void){
-    return &_pubMgr;
-};
+PublishManager* MqttsnClient::getPublishManager(void)
+{
+	return &_pubMgr;
+}
+;
 
-SubscribeManager* MqttsnClient::getSubscribeManager(void){
-    return &_subMgr;
-};
+SubscribeManager* MqttsnClient::getSubscribeManager(void)
+{
+	return &_subMgr;
+}
+;
 
-RegisterManager*  MqttsnClient::getRegisterManager(void){
+RegisterManager* MqttsnClient::getRegisterManager(void)
+{
 	return _gwProxy.getRegisterManager();
 }
 
-TaskManager* MqttsnClient::getTaskManager(void){
-    return &_taskMgr;
-};
+TaskManager* MqttsnClient::getTaskManager(void)
+{
+	return &_taskMgr;
+}
+;
 
-TopicTable* MqttsnClient::getTopicTable(void){
-    return _gwProxy.getTopicTable();
+TopicTable* MqttsnClient::getTopicTable(void)
+{
+	return _gwProxy.getTopicTable();
 }
 
-void MqttsnClient::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain){
-    _pubMgr.publish(topicName, payload, qos, retain);
+void MqttsnClient::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain)
+{
+	_pubMgr.publish(topicName, payload, qos, retain);
 }
 
-void MqttsnClient::subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos){
-    _subMgr.subscribe(topicName, onPublish, qos);
+void MqttsnClient::subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos)
+{
+	_subMgr.subscribe(topicName, onPublish, qos);
 }
 
-void MqttsnClient::subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType){
-    _subMgr.subscribe(topicId, onPublish, qos, topicType);
+void MqttsnClient::subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType)
+{
+	_subMgr.subscribe(topicId, onPublish, qos, topicType);
 }
 
-void  MqttsnClient::unsubscribe(const char* topicName){
-    _subMgr.unsubscribe(topicName);
+void MqttsnClient::unsubscribe(const char* topicName)
+{
+	_subMgr.unsubscribe(topicName);
 }
 
-void MqttsnClient::disconnect(uint16_t sleepInSecs){
-    _gwProxy.disconnect(sleepInSecs);
+void MqttsnClient::disconnect(uint16_t sleepInSecs)
+{
+	_gwProxy.disconnect(sleepInSecs);
 }
 
-void MqttsnClient::run(void){
-    _taskMgr.run();
-    if (sleep()){
-        _intCallback();
-    }
-}
-
-void MqttsnClient::onConnect(void){
-
-	/*
-	 *    subscribe() for Predefined TopicId
-	 */
-
-	for(uint8_t i = 0; theOnPublishList[i].pubCallback; i++){
-		subscribe(theOnPublishList[i].topic, theOnPublishList[i].pubCallback, theOnPublishList[i].qos);
+void MqttsnClient::run(void)
+{
+	_taskMgr.run();
+	if (sleep())
+	{
+		_intCallback();
 	}
+}
+
+void MqttsnClient::onConnect(void)
+{
+
+	/*   subscribe() for Predefined TopicIds in here */
+
+	/*   subscribe the OTA topic  */
 	String topicOta = theClient->getClientId();
 	topicOta += TOPIC_OTA_READY;
 	subscribe(topicOta.c_str(), setOTAmode, 1);
+
+	/*   subscribe topics in SUBSCRIBE_LIST  */
+	for (uint8_t i = 0; theOnPublishList[i].pubCallback; i++)
+	{
+		subscribe(theOnPublishList[i].topic, theOnPublishList[i].pubCallback, theOnPublishList[i].qos);
+	}
 }
 
 char* MqttsnClient::getClientId(void)
@@ -238,58 +269,56 @@ char* MqttsnClient::getClientId(void)
 	return _gwProxy.getClientId();
 }
 
-void MqttsnClient::indicator(bool onOff){
-#ifdef ARDUINO
-	if (onOff){
+void MqttsnClient::indicator(bool onOff)
+{
+	if (onOff)
+	{
 		digitalWrite(ARDUINO_LED_PIN, 1);
-	}else{
+	}
+	else
+	{
 		digitalWrite(ARDUINO_LED_PIN, 0);
 	}
-#endif
 }
-
 
 #ifdef ARDUINO
 
 //https://github.com/LowPowerLab/LowPower
 
-
-
-int MqttsnClient::sleep(void){
+int MqttsnClient::sleep(void)
+{
 	// Enter idle state for 8 s with the rest of peripherals turned off
 	// Each microcontroller comes with different number of peripherals
 	// Comment off line of code where necessary
 
 #define SLEEP_TIME SLEEP_1S
 	uint32_t sec = 1;
-/*
-	// ATmega328P, ATmega168
-	//LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF,
-				SPI_OFF, USART0_OFF, TWI_OFF);
-	//Timer::setUnixTime(Timer::getUnixTime() + sec);
+	/*
+	 // ATmega328P, ATmega168
+	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF,
+	 SPI_OFF, USART0_OFF, TWI_OFF);
+	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
 
-	// ATmega32U4
-	//LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER4_OFF, TIMER3_OFF, TIMER1_OFF,
-	//		  TIMER0_OFF, SPI_OFF, USART1_OFF, TWI_OFF, USB_OFF);
-	//Timer::setUnixTime(Timer::getUnixTime() + sec);
+	 // ATmega32U4
+	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER4_OFF, TIMER3_OFF, TIMER1_OFF,
+	 //		  TIMER0_OFF, SPI_OFF, USART1_OFF, TWI_OFF, USB_OFF);
+	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
 
-	// ATmega2560
-	//LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER5_OFF, TIMER4_OFF, TIMER3_OFF,
-	//		  TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART3_OFF,
-	//		  USART2_OFF, USART1_OFF, USART0_OFF, TWI_OFF);
-	//Timer::setUnixTime(Timer::getUnixTime() + sec);
-*/
+	 // ATmega2560
+	 //LowPower.idle(SLEEP_TIME, ADC_OFF, TIMER5_OFF, TIMER4_OFF, TIMER3_OFF,
+	 //		  TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, SPI_OFF, USART3_OFF,
+	 //		  USART2_OFF, USART1_OFF, USART0_OFF, TWI_OFF);
+	 //Timer::setUnixTime(Timer::getUnixTime() + sec);
+	 */
 	return 0;
 }
 
 #else
 
-int MqttsnClient::sleep(void){
-    return 0;
+int MqttsnClient::sleep(void)
+{
+	return 0;
 }
 
 #endif
-
-
-
 

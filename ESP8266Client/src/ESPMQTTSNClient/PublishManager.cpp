@@ -222,8 +222,7 @@ void PublishManager::checkTimeout(void){
 		if ( elm->sendUTC > 0 && elm->sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
 			if (elm->retryCount >= 0){
 				sendPublish(elm);
-				D_MQTTL("...Timeout retry\r\n");
-				D_MQTTA(F("...Timeout retry\r\n"));
+				D_MQTTLOG("...Timeout retry\r\n");
 			}else{
 				theClient->getGwProxy()->reconnect();
 				elm->retryCount = MQTTSN_RETRY_COUNT;
