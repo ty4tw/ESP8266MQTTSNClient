@@ -218,6 +218,23 @@ void MqttsnClient::publish(const char* topicName, MQTTSNPayload* payload, uint8_
 	_pubMgr.publish(topicName, payload, qos, retain);
 }
 
+void MqttsnClient::publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
+{
+	_pubMgr.publish(topicName, payload, len, qos, retain);
+}
+
+void MqttsnClient::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain)
+{
+	_pubMgr.publish(topicId, payload, qos, retain);
+}
+
+void MqttsnClient::publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
+{
+	_pubMgr.publish(topicId, payload, len, qos, retain);
+}
+
+
+
 void MqttsnClient::subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos)
 {
 	_subMgr.subscribe(topicName, onPublish, qos);

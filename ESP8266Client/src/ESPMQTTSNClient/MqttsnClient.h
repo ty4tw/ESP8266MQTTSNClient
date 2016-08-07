@@ -64,6 +64,9 @@ public:
     ~MqttsnClient();
     void onConnect(void);
     void publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
+    void publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
     void subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos);
     void subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType);
     void unsubscribe(const char* topicName);

@@ -66,7 +66,7 @@ PublishManager::~PublishManager(){
 }
 
 void PublishManager::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain){
-    PubElement* elm = add(topicName, 0, payload, qos, retain, theClient->getGwProxy()->getNextMsgId());
+    PubElement* elm = add(topicName, 0, payload->getRowData(), payload->getLen(), qos, retain, theClient->getGwProxy()->getNextMsgId());
     if (elm->status == TOPICID_IS_READY){  
         sendPublish(elm);
     }else{
@@ -74,8 +74,22 @@ void PublishManager::publish(const char* topicName, MQTTSNPayload* payload, uint
     }
 }
 
-void  PublishManager::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos){
-	PubElement* elm = add(NULLCHAR, topicId, payload, qos, 0, theClient->getGwProxy()->getNextMsgId());
+void PublishManager::publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain){
+    PubElement* elm = add(topicName, 0, payload, len, qos, retain, theClient->getGwProxy()->getNextMsgId());
+    if (elm->status == TOPICID_IS_READY){
+        sendPublish(elm);
+    }else{
+        theClient->getGwProxy()->registerTopic((char*)topicName, 0);
+    }
+}
+
+void  PublishManager::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain){
+	PubElement* elm = add(NULLCHAR, topicId, payload->getRowData(), payload->getLen(), qos, retain, theClient->getGwProxy()->getNextMsgId());
+	sendPublish(elm);
+}
+
+void  PublishManager::publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain){
+	PubElement* elm = add(NULLCHAR, topicId, payload, len, qos, retain, theClient->getGwProxy()->getNextMsgId());
 	sendPublish(elm);
 }
 
@@ -88,12 +102,12 @@ void PublishManager::sendPublish(PubElement* elm){
     
     uint8_t msg[MQTTSN_MAX_MSG_LENGTH + 1];
     uint8_t org = 0;
-    if (elm->payload->getLen() > 128){
+    if (elm->payloadlen > 128){
         msg[0] = 0x01;
-        setUint16(msg + 1, elm->payload->getLen() + 9);
+        setUint16(msg + 1, elm->payloadlen + 9);
         org = 3;
     }else{
-        msg[0] = (uint8_t)elm->payload->getLen() + 7;
+        msg[0] = (uint8_t)elm->payloadlen + 7;
     }
     msg[org + 1] = MQTTSN_TYPE_PUBLISH;
     msg[org + 2] = elm->flag;
@@ -106,7 +120,7 @@ void PublishManager::sendPublish(PubElement* elm){
         setUint16(msg + org + 3, elm->topicId);
     }
     setUint16(msg + org + 5, elm->msgId);
-    memcpy(msg + org + 7, elm->payload->getRowData(), elm->payload->getLen());
+    memcpy(msg + org + 7, elm->payload, elm->payloadlen);
 
 	theClient->getGwProxy()->writeMsg(msg);
 	theClient->getGwProxy()->resetPingReqTimer();
@@ -265,12 +279,10 @@ void PublishManager::remove(PubElement* elm){
     		if (elm->next != 0){
     			elm->next->prev = 0;
     		}
-            delete elm->payload;
-            delElement(elm);
     	}else{
     		elm->prev->next = elm->next;
-    		delElement(elm);
     	}
+        delElement(elm);
         _elmCnt--;
     }
 }
@@ -279,11 +291,16 @@ void PublishManager::delElement(PubElement* elm){
 	if (elm->taskIndex >= 0){
 		theClient->getTaskManager()->done(elm->taskIndex);
 	}
+	free(elm->payload);
 	free(elm);
 }
 
-
+/*
 PubElement* PublishManager::add(const char* topicName, uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, uint8_t retain, uint16_t msgId){
+	return add(topicName, topicId, payload->getRowData(), payload->getLen(), qos, retain, msgId);
+}*/
+
+PubElement* PublishManager::add(const char* topicName, uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, uint8_t retain, uint16_t msgId){
     PubElement* last = _first;
 	PubElement* prev = _first;
 	PubElement* elm = (PubElement*)calloc(1,sizeof(PubElement));
@@ -322,7 +339,13 @@ PubElement* PublishManager::add(const char* topicName, uint16_t topicId, MQTTSNP
         elm->topicId = topicId;
     }
 
-    elm->payload = payload;
+    elm->payload = (uint8_t*)malloc(len);
+    if ( elm->payload == 0 )
+    {
+    	return 0;
+    }
+    memcpy(elm->payload, payload, len);
+    elm->payloadlen = len;
 	elm->msgId = msgId;
 	elm->retryCount = MQTTSN_RETRY_COUNT;
 	elm->sendUTC = 0;
