@@ -77,7 +77,7 @@ public:
     void registerInt0Callback(void (*callback)());
     void addTask(void);
     void setSleepMode(bool mode);
-	char* getClientId(void);
+	const char* getClientId(void);
     GwProxy*          getGwProxy(void);
     PublishManager*   getPublishManager(void);
     SubscribeManager* getSubscribeManager(void);
