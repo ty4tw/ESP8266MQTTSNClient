@@ -57,6 +57,8 @@ GwProxy::GwProxy(){
 	_tAdv = MQTTSN_DEFAULT_DURATION;
 	_cleanSession = 0;
 	_pingStatus = 0;
+	_connectRetry = MQTTSN_RETRY_COUNT;
+
 }
 
 GwProxy::~GwProxy(){
@@ -113,6 +115,7 @@ void GwProxy::connect(){
 				_status = GW_WAIT_CONNACK;
 			}
 			writeGwMsg();
+			_connectRetry = MQTTSN_RETRY_COUNT;
 		}else if (_status == GW_LOST){
 
 			*pos++ = 3;
@@ -132,12 +135,16 @@ int GwProxy::getConnectResponce(void){
 
 	if (len == 0){
 		if (_sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
+			if (_msg[1] == MQTTSN_TYPE_CONNECT)
+			{
+				_connectRetry--;
+			}
 			if (--_retryCount > 0){
-				writeMsg((const uint8_t*)_msg);  // Not writeGwMsg()
+				writeMsg((const uint8_t*)_msg);  // Not writeGwMsg() : not to reset the counter.
 				_sendUTC = Timer::getUnixTime();
 			}else{
 				_sendUTC = 0;
-				if (_status > GW_SEARCHING){
+				if ( _status > GW_SEARCHING && _connectRetry > 0){
 					_status = GW_CONNECTING;
 				}else{
 					_status = GW_LOST;
@@ -158,6 +165,7 @@ int GwProxy::getConnectResponce(void){
 	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_CONNACK && _status == GW_WAIT_CONNACK){
 		if (_mqttsnMsg[1] == 0x00){
 			_status = GW_CONNECTED;
+			_connectRetry = MQTTSN_RETRY_COUNT;
 			_keepAliveTimer.start(_tkeepAlive * 1000);
 			_topicTbl.clearTopic();
 			theClient->onConnect();  // SUBSCRIBEs are conducted
@@ -187,9 +195,7 @@ void GwProxy::disconnect(uint16_t secs){
 		_keepAliveTimer.stop();
 	}
 
-	_retryCount = MQTTSN_RETRY_COUNT;
-	writeMsg((const uint8_t*)_msg);
-	_sendUTC = Timer::getUnixTime();
+	writeGwMsg();
 
 	while ( _status != GW_DISCONNECTED && _status != GW_SLEPT){
 		if (getDisconnectResponce() < 0){
@@ -443,6 +449,6 @@ void GwProxy::close() {
 	_network.close();
 }
 
-char* GwProxy::getClientId(void) {
+const char* GwProxy::getClientId(void) {
 	return _clientId;
 }

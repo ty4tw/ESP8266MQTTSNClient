@@ -281,7 +281,7 @@ void PublishManager::published(uint8_t* msg, uint16_t msglen)
 
 	uint16_t msgId = getUint16(msg + 2);
 
-	if (msg[1] & 0x03 == MQTTSN_TOPIC_TYPE_PREDEFINED)
+	if ( (msg[1] & 0x03) == MQTTSN_TOPIC_TYPE_PREDEFINED )
 	{
 		if (msgId == 0x0001)
 		{

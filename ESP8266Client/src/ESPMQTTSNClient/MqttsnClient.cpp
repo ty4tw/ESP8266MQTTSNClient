@@ -48,7 +48,6 @@ extern NETWORK_CONFIG;
 extern MQTTSN_CONFIG;
 extern TaskList theTaskList[];
 extern OnPublishList theOnPublishList[];
-extern const char* theTopicOTA;
 extern const char* theOTAPasswd;
 extern uint16_t theOTAportNo;
 extern const char* theSsid;
@@ -56,19 +55,11 @@ extern const char* thePasswd;
 extern const char* theSNTPserver;
 extern int theSNTPinterval;
 
-#define TOPIC_OTA_READY  "/ota"
 /*=====================================
  MqttsnClient
  ======================================*/
 MqttsnClient* theClient = new MqttsnClient();
 bool theOTAflag = false;
-
-/*
-int setOTAmode(MQTTSNPayload* pload)
-{
-	theOTAflag = true;
-	return 0;
-}*/
 
 void setOTAServer(void)
 {
@@ -275,7 +266,7 @@ void MqttsnClient::onConnect(void)
 	}
 }
 
-char* MqttsnClient::getClientId(void)
+const char* MqttsnClient::getClientId(void)
 {
 	return _gwProxy.getClientId();
 }
