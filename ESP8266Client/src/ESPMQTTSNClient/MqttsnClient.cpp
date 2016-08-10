@@ -53,7 +53,7 @@ extern const char* theSsid;
 extern const char* thePasswd;
 extern const char* theSNTPserver;
 extern int theSNTPinterval;
-extern int theOTATimeout
+extern int theOTATimeout;
 void setOTA(void);
 /*=====================================
  MqttsnClient
