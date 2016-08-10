@@ -85,12 +85,8 @@ public:
 	uint16_t getNextMsgId();
 	TopicTable* getTopicTable(void);
 	RegisterManager* getRegisterManager(void);
-<<<<<<< HEAD
-	void     open(NETCONF netconf);
-	char*    getClientId(void);
-=======
 	const char*    getClientId(void);
->>>>>>> refs/heads/OTA
+
 private:
 	int      readMsg(void);
 	void     writeGwMsg(void);
@@ -102,7 +98,7 @@ private:
 	Network     _network;
 	uint8_t*    _mqttsnMsg;
 	uint16_t    _nextMsgId;
-	char        _clientId[24];
+	char        _clientId[64];
 	const char* _willTopic;
 	const char* _willMsg;
 	uint8_t     _cleanSession;

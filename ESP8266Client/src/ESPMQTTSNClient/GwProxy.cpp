@@ -66,12 +66,8 @@ GwProxy::~GwProxy(){
 }
 
 void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
-<<<<<<< HEAD
-	_network.open(netconf);
-=======
 	_network.initialize(netconf);
 	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
->>>>>>> refs/heads/OTA
     _willTopic = mqconf.willTopic;
     _willMsg = mqconf.willMsg;
     _qosWill = mqconf.willQos;
@@ -454,14 +450,6 @@ void GwProxy::close() {
 	_network.close();
 }
 
-<<<<<<< HEAD
-void GwProxy::open(NETCONF netconf) {
-	_network.open(netconf);
-}
-
-char* GwProxy::getClientId(void) {
-=======
 const char* GwProxy::getClientId(void) {
->>>>>>> refs/heads/OTA
 	return _clientId;
 }
