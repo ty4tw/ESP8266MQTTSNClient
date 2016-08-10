@@ -1,8 +1,8 @@
 /* MQTTSNClient's parameters */
 
 /* WiFi parameters */
-const char* theSsid   = "---------";
-const char* thePasswd = "---------";
+const char* theSsid   = "SSID";
+const char* thePasswd = "PASSWORD";
 
 /* OTA parameters */
 int         theOTATimeout = 120;   // seconds
