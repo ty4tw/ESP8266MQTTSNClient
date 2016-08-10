@@ -28,10 +28,13 @@
  *
  */
 
-#include <MqttsnClientApp.h>
-#include <Timer.h>
+#include "MqttsnClientApp.h"
+#include "Timer.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/reent.h>
+#include <sntp.h>
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -39,32 +42,20 @@ using namespace ESP8266MQTTSNClient;
 /*=====================================
         Class Timer
  =====================================*/
-#ifdef ARDUINO
-/**
- *   for Arduino
- */
 uint32_t Timer::_unixTime = 0;
 uint32_t Timer::_epochTime = 0;
 uint32_t Timer::_timerStopTimeAccum = 0;
-bool    Timer::_utcFlag = false;
-
+uint32_t Timer::_updateInterval = 0;
+uint32_t Timer::_init = 0;
 
 Timer::Timer(){
     stop();
-}
-
-void Timer::initialize(){
-	_unixTime = 0;
-	_epochTime = 0;
-	_timerStopTimeAccum = 0;
-	_utcFlag = false;
 }
 
 void Timer::start(uint32_t msec){
     _startTime = millis();
     _millis = msec;
     _currentTime = 0;
-	_timeupUnixTime =  getUnixTime() + msec / 1000;
 }
 
 bool Timer::isTimeUp(){
@@ -72,24 +63,15 @@ bool Timer::isTimeUp(){
 }
 
 bool Timer::isTimeUp(uint32_t msec){
-	if(_utcFlag){
-		_utcFlag = false;
-		if(_timeupUnixTime > 1000000000 && _unixTime){
-			return (getUnixTime() >= _timeupUnixTime);
+	if ( _startTime){
+		_currentTime = millis();
+		if ( _currentTime < _startTime){
+			return (0xffffffff - _startTime + _currentTime > msec);
 		}else{
-			return false;
+			return (_currentTime - _startTime > msec);
 		}
 	}else{
-		if ( _startTime){
-			_currentTime = millis();
-			if ( _currentTime < _startTime){
-				return (0xffffffff - _startTime + _currentTime > msec);
-			}else{
-				return (_currentTime - _startTime > msec);
-			}
-		}else{
-			return false;
-		}
+		return false;
 	}
 }
 
@@ -97,13 +79,6 @@ void Timer::stop(){
     _startTime = 0;
     _millis = 0;
     _currentTime = 0;
-    _timeupUnixTime = 0;
-}
-
-void Timer::setUnixTime(uint32_t utc){
-    _epochTime = millis();
-    _timerStopTimeAccum = 0;
-    _unixTime = utc;
 }
 
 uint32_t Timer::getUnixTime(){
@@ -119,9 +94,47 @@ void Timer::setStopTimeDuration(uint32_t msec){
 	_timerStopTimeAccum += msec;
 }
 
-void Timer::changeUTC(){
-	_utcFlag = true;
+
+void Timer::initialize(uint32_t timezone, uint32_t daylightOffset_sec, const char* server1, const char* server2, const char* server3, uint32_t interval)
+{
+	configTime(timezone * 3600, daylightOffset_sec, server1, server2, server3);
+	_updateInterval = interval * 1000;
 }
 
-#endif
+bool Timer::update(void)
+{
+	 uint32_t tm = _timerStopTimeAccum + millis();
+	 uint32_t interval;
+
+	if (_epochTime > tm ){
+	    interval = 0xffffffff - tm - _epochTime;
+	}
+	else
+	{
+		interval = tm - _epochTime;
+	}
+
+	if ( interval >= _updateInterval || _init == 0 )
+	{
+		uint8_t timeout = 0;
+		time_t tm = 0;
+		do
+		{
+			delay(10);
+			time(&tm);
+			if ( timeout > 100 )
+			{
+				return false;
+			}
+			timeout++;
+		}
+		while ( tm == 0 );
+		_unixTime = (uint32_t)tm;
+		_epochTime = millis();
+		_timerStopTimeAccum = 0;
+		_init = 1;
+	}
+	return true;
+}
+
 

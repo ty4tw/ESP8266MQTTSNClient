@@ -31,15 +31,15 @@
 #ifndef MQTTSNCLIENT_H_
 #define MQTTSNCLIENT_H_
 
-#include <MqttsnClientApp.h>
-#include <Timer.h>
-#include <TaskManager.h>
-#include <PublishManager.h>
-#include <SubscribeManager.h>
-#include <GwProxy.h>
+#include "MqttsnClientApp.h"
+#include "Timer.h"
+#include "TaskManager.h"
+#include "PublishManager.h"
+#include "SubscribeManager.h"
+#include "GwProxy.h"
 #include <stdio.h>
 #include <string.h>
-#include <MQTTSNPayload.h>
+#include "MQTTSNPayload.h"
 
 using namespace std;
 
@@ -48,12 +48,12 @@ namespace ESP8266MQTTSNClient {
 struct OnPublishList
 {
 	const char* topic;
-	int (*pubCallback)(MQTTSNPayload*);
+	int (*pubCallback)(uint8_t* payload, uint16_t payloadlen);
 	uint8_t qos;
 };
 
 #define GETUTC() Timer::getUnixTime()
-int setUTC(MQTTSNPayload*);
+//int setUTC(MQTTSNPayload*);
 
 /*========================================
        Class MqttsnClient
@@ -64,6 +64,9 @@ public:
     ~MqttsnClient();
     void onConnect(void);
     void publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
+    void publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
     void subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos);
     void subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType);
     void unsubscribe(const char* topicName);
@@ -74,7 +77,7 @@ public:
     void registerInt0Callback(void (*callback)());
     void addTask(void);
     void setSleepMode(bool mode);
-	char* getClientId(void);
+	const char* getClientId(void);
     GwProxy*          getGwProxy(void);
     PublishManager*   getPublishManager(void);
     SubscribeManager* getSubscribeManager(void);

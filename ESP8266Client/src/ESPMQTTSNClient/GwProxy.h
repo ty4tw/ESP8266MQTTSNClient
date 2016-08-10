@@ -31,11 +31,11 @@
 #ifndef GWPROXY_H_
 #define GWPROXY_H_
 
-#include <MqttsnClientApp.h>
-#include <NetworkUdp.h>
-#include <Timer.h>
-#include <RegisterManager.h>
-#include <TopicTable.h>
+#include "MqttsnClientApp.h"
+#include "NetworkUdp.h"
+#include "Timer.h"
+#include "RegisterManager.h"
+#include "TopicTable.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -85,8 +85,12 @@ public:
 	uint16_t getNextMsgId();
 	TopicTable* getTopicTable(void);
 	RegisterManager* getRegisterManager(void);
+<<<<<<< HEAD
 	void     open(NETCONF netconf);
 	char*    getClientId(void);
+=======
+	const char*    getClientId(void);
+>>>>>>> refs/heads/OTA
 private:
 	int      readMsg(void);
 	void     writeGwMsg(void);
@@ -109,6 +113,7 @@ private:
 	uint32_t    _tAdv;
 	uint32_t    _sendUTC;
 	int         _retryCount;
+	int         _connectRetry;
 	uint8_t     _status;
 	uint32_t    _pingSendUTC;
 	uint8_t     _pingRetryCount;
