@@ -54,57 +54,13 @@ extern const char* theSsid;
 extern const char* thePasswd;
 extern const char* theSNTPserver;
 extern int theSNTPinterval;
-
+extern int  theOTATimeout;
+void setOTA(void);
 /*=====================================
  MqttsnClient
  ======================================*/
 MqttsnClient* theClient = new MqttsnClient();
-bool theOTAflag = false;
-
-void setOTAServer(void)
-{
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(theSsid, thePasswd);
-
-	while (WiFi.status() != WL_CONNECTED)
-	{
-		delay(500);
-		D_OTALOG(".");
-	}
-
-	ArduinoOTA.setPort(theOTAportNo);
-	ArduinoOTA.setHostname(theClient->getClientId());
-	ArduinoOTA.setPassword(theOTAPasswd);
-
-	ArduinoOTA.onStart([]()
-	{
-		D_OTALOG("Start");
-		return;
-	});
-	ArduinoOTA.onEnd([]()
-	{
-		D_OTALOG("\nEnd");
-		return;
-	});
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-	{
-		D_OTALOG("Progress: %u%%\r", (progress / (total / 100)));
-		return;
-	});
-	ArduinoOTA.onError([](ota_error_t error)
-	{
-		D_OTALOG("Error[%u]: ", error);
-		if (error == OTA_AUTH_ERROR) D_OTALOG("Auth Failed");
-		else if (error == OTA_BEGIN_ERROR) D_OTALOG("Begin Failed");
-		else if (error == OTA_CONNECT_ERROR) D_OTALOG("Connect Failed");
-		else if (error == OTA_RECEIVE_ERROR) D_OTALOG("Receive Failed");
-		else if (error == OTA_END_ERROR) D_OTALOG("End Failed");
-		return;
-	});
-	ArduinoOTA.begin();
-	D_OTALOG("OTA Ready!  IP address: ");
-	D_OTALOG("%s\n", WiFi.localIP().toString().c_str());
-}
+bool theOTAFlg = false;
 
 void loop()
 {
@@ -118,17 +74,17 @@ void loop()
 	{
 		Timer::update();
 		theClient->run();
-		if (theOTAflag)
+		if (theOTAFlg)
 		{
-			MQTTSNPayload* pl = new MQTTSNPayload(20);
+			MQTTSNPayload* pl = new MQTTSNPayload(46);
+			pl->set_str(theClient->getClientId());
 			pl->set_str(WiFi.localIP().toString().c_str());
 			pl->set_uint32(theOTAportNo);
 			theClient->publish(0x002, pl, 1);
 			theClient->run();
-
 			WiFi.disconnect();
-			setOTAServer();
-			for (int i = 0; i < 12000; i++)
+			setOTA();
+			for (int i = 0; i < theOTATimeout * 100; i++)
 			{
 				ArduinoOTA.handle();
 				delay(10);
@@ -288,4 +244,47 @@ int MqttsnClient::sleep(void)
 	return 0;
 }
 
+void setOTA(void)
+{
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(theSsid, thePasswd);
 
+	while (WiFi.status() != WL_CONNECTED)
+	{
+		delay(500);
+		D_OTALOG(".");
+	}
+
+	ArduinoOTA.setPort(theOTAportNo);
+	ArduinoOTA.setHostname(theClient->getClientId());
+	ArduinoOTA.setPassword(theOTAPasswd);
+
+	ArduinoOTA.onStart([]()
+	{
+		D_OTALOG("Start");
+		return;
+	});
+	ArduinoOTA.onEnd([]()
+	{
+		D_OTALOG("\nEnd");
+		return;
+	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+	{
+		D_OTALOG("Progress: %u%%\r", (progress / (total / 100)));
+		return;
+	});
+	ArduinoOTA.onError([](ota_error_t error)
+	{
+		D_OTALOG("Error[%u]: ", error);
+		if (error == OTA_AUTH_ERROR) D_OTALOG("Auth Failed");
+		else if (error == OTA_BEGIN_ERROR) D_OTALOG("Begin Failed");
+		else if (error == OTA_CONNECT_ERROR) D_OTALOG("Connect Failed");
+		else if (error == OTA_RECEIVE_ERROR) D_OTALOG("Receive Failed");
+		else if (error == OTA_END_ERROR) D_OTALOG("End Failed");
+		return;
+	});
+	ArduinoOTA.begin();
+	D_OTALOG("OTA Ready!  IP address: ");
+	D_OTALOG("%s\n", WiFi.localIP().toString().c_str());
+}
