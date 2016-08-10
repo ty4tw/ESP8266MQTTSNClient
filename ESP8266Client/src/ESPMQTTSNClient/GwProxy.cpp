@@ -58,7 +58,7 @@ GwProxy::GwProxy(){
 	_cleanSession = 0;
 	_pingStatus = 0;
 	_connectRetry = MQTTSN_RETRY_COUNT;
-
+	_clientId = 0;
 }
 
 GwProxy::~GwProxy(){
@@ -67,13 +67,17 @@ GwProxy::~GwProxy(){
 
 void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
 	_network.initialize(netconf);
-	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
     _willTopic = mqconf.willTopic;
     _willMsg = mqconf.willMsg;
     _qosWill = mqconf.willQos;
     _retainWill = mqconf.willRetain;
     _cleanSession = mqconf.cleanSession;
     _tkeepAlive = mqconf.keepAlive;
+    if (_clientId)
+    {
+    	delete _clientId;
+    }
+    _clientId = new char(strlen(netconf.clientId) + 8);
 	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
 }
 
@@ -97,7 +101,7 @@ void GwProxy::connect(){
 			_status = GW_WAIT_WILLMSGREQ;
 			writeGwMsg();
 		}else if (_status == GW_CONNECTING || _status == GW_DISCONNECTED){
-			uint8_t clientIdLen = uint8_t(strlen(_clientId) > 23 ? 23 : strlen(_clientId));
+			uint8_t clientIdLen = strlen(_clientId);
 			*pos++ = 6 + clientIdLen;
 			*pos++ = MQTTSN_TYPE_CONNECT;
 			pos++;

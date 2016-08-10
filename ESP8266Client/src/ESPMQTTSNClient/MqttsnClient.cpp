@@ -74,21 +74,26 @@ void loop()
 		theClient->run();
 		if (theOTAflag)
 		{
-			MQTTSNPayload* pl = new MQTTSNPayload(46);
-			pl->set_str(theClient->getClientId());
-			pl->set_str(WiFi.localIP().toString().c_str());
-			pl->set_uint32(theOTAportNo);
-			theClient->publish(0x002, pl, 1);
-			theClient->run();
-			WiFi.disconnect();
-			setOTA();
-			for (int i = 0; i < theOTATimeout * 100; i++)
+			MQTTSNPayload* pl = new MQTTSNPayload(128);
+			if ( pl )
 			{
-				ArduinoOTA.handle();
-				delay(10);
+				pl->set_str(theClient->getClientId());
+				pl->set_str(WiFi.localIP().toString().c_str());
+				pl->set_uint32(theOTAportNo);
+				theClient->publish(0x002, pl, 1);
+				delete pl;
+				theClient->run();
+				WiFi.disconnect();
+				setOTA();
+				for (int i = 0; i < theOTATimeout * 100; i++)
+				{
+					ArduinoOTA.handle();
+					delay(10);
+				}
+				D_OTALOG("Timeout!!!");
+				ESP.reset();
 			}
-			D_OTALOG("Timeout!!!");
-			ESP.reset();
+			theOTAflag = false;
 		}
 	}
 }
