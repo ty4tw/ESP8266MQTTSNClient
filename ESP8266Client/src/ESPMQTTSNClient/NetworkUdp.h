@@ -96,7 +96,7 @@ public:
     void setGwAddress(void);
     void resetGwAddress(void);
     void setFixedGwAddress(void);
-    bool open(NETCONF  config);
+    bool initialize(NETCONF  config);
     void close(void);
     uint8_t*  getMessage(int* len);
 private:

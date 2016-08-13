@@ -342,19 +342,11 @@ void GwProxy::writeGwMsg(void){
 }
 
 int GwProxy::readMsg(void){
-	int len = 0;
+	int len = MQTTSN_MAX_PACKET_SIZE;
 	_mqttsnMsg = _network.getMessage(&len);
-	if (len == 0){
+	if (_mqttsnMsg == 0){
 		return 0;
 	}
-	/*else if (len < 0){
-		if ( _status < GW_CONNECTING){
-			_status = GW_LOST;
-		}else{
-			_status = GW_CONNECTING;
-		}
-		return -1;
-	}*/
 
 	if (_mqttsnMsg[0] == 0x01){
 		int msgLen = (int) getUint16((const uint8_t*)_mqttsnMsg + 1);
@@ -366,6 +358,7 @@ int GwProxy::readMsg(void){
 		_mqttsnMsg += 1;
 		len -= 1;
 	}
+
 	return len;
 }
 

@@ -28,9 +28,10 @@
  *
  */
 
-#include <MqttsnClientApp.h>
-#include <NetworkUdp.h>
-#include <Timer.h>
+#include "MqttsnClientApp.h"
+#include "NetworkUdp.h"
+#include "Timer.h"
+#include <string.h>
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -65,30 +66,20 @@ uint8_t*  Network::getMessage(int* len){
 	*len = 0;
 	if (checkRecvBuf()){
 		D_NWLOG("Network::getMessage() data received..\n");
+		memset(_rxDataBuf, 0, sizeof(_rxDataBuf));
 		uint16_t recvLen = UdpPort::recv(_rxDataBuf, MQTTSN_MAX_PACKET_SIZE, false, &_ipAddress, &_portNo);
 		if(_gwIpAddress && isUnicast() && (_ipAddress != _gwIpAddress) && (_portNo != _gwPortNo))
 		{
-			return 0;
+			goto exit;;
 		}
-
 		if(recvLen < 0){
-			*len = recvLen;
-			return 0;
+			goto exit;
 		}else{
-			if(_rxDataBuf[0] == 0x01){
-				*len = getUint16(_rxDataBuf + 1 );
-			}else{
-				*len = _rxDataBuf[0];
-			}
-			if(recvLen != *len){
-				*len = 0;
-				return 0;
-			}else{
-				return _rxDataBuf;
-			}
+			*len = recvLen;
+			return _rxDataBuf;
 		}
 	}
-	return 0;
+exit:	return 0;
 }
 
 void Network::setGwAddress(void){
@@ -107,7 +98,7 @@ void Network::resetGwAddress(void){
 }
 
 
-bool Network::open(NETCONF  config){
+bool Network::initialize(NETCONF  config){
 	return UdpPort::open(config);
 }
 
@@ -228,6 +219,7 @@ int UdpPort::recv(uint8_t* buf, uint16_t len, bool flg, uint32_t* ipAddressPtr, 
 int UdpPort::recvfrom ( uint8_t* buf, uint16_t len, int flags, uint32_t* ipAddressPtr, uint16_t* portPtr ){
 	IPAddress remoteIp;
 	uint8_t packLen;
+
 	if(_castStat == STAT_UNICAST){
 		packLen = _udpUnicast.read(buf, len);
 		*portPtr = _udpUnicast.remotePort();

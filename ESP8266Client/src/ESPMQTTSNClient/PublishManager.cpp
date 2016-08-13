@@ -72,8 +72,12 @@ PublishManager::~PublishManager()
 
 void PublishManager::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain)
 {
-	PubElement* elm = add(topicName, 0, payload->getRowData(), payload->getLen(), qos, retain,
-			theClient->getGwProxy()->getNextMsgId());
+	uint16_t msgId = 0;
+	if ( qos > 0 )
+	{
+		msgId = theClient->getGwProxy()->getNextMsgId();
+	}
+	PubElement* elm = add(topicName, 0, payload->getRowData(), payload->getLen(), qos, retain, msgId);
 	if (elm->status == TOPICID_IS_READY)
 	{
 		sendPublish(elm);
@@ -86,7 +90,13 @@ void PublishManager::publish(const char* topicName, MQTTSNPayload* payload, uint
 
 void PublishManager::publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
 {
-	PubElement* elm = add(topicName, 0, payload, len, qos, retain, theClient->getGwProxy()->getNextMsgId());
+	uint16_t msgId = 0;
+	if ( qos > 0 )
+	{
+		msgId = theClient->getGwProxy()->getNextMsgId();
+	}
+
+	PubElement* elm = add(topicName, 0, payload, len, qos, retain, msgId);
 	if (elm->status == TOPICID_IS_READY)
 	{
 		sendPublish(elm);
@@ -99,14 +109,25 @@ void PublishManager::publish(const char* topicName, uint8_t* payload, uint16_t l
 
 void PublishManager::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain)
 {
-	PubElement* elm = add(NULLCHAR, topicId, payload->getRowData(), payload->getLen(), qos, retain,
-			theClient->getGwProxy()->getNextMsgId());
+	uint16_t msgId = 0;
+	if ( qos > 0 )
+	{
+		msgId = theClient->getGwProxy()->getNextMsgId();
+	}
+
+	PubElement* elm = add(NULLCHAR, topicId, payload->getRowData(), payload->getLen(), qos, retain, msgId);
 	sendPublish(elm);
 }
 
 void PublishManager::publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
 {
-	PubElement* elm = add(NULLCHAR, topicId, payload, len, qos, retain, theClient->getGwProxy()->getNextMsgId());
+	uint16_t msgId = 0;
+	if ( qos > 0 )
+	{
+		msgId = theClient->getGwProxy()->getNextMsgId();
+	}
+
+	PubElement* elm = add(NULLCHAR, topicId, payload, len, qos, retain, msgId);
 	sendPublish(elm);
 }
 

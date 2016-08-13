@@ -47,15 +47,15 @@
 /****************************************
       MQTT-SN Parameters
 *****************************************/
-#define MAX_INFLIGHT_MSG   10
-#define MQTTSN_MAX_MSG_LENGTH  1024
-#define MQTTSN_MAX_PACKET_SIZE 1024
+#define MAX_INFLIGHT_MSG   (10)
+#define MQTTSN_MAX_MSG_LENGTH  (1021)
+#define MQTTSN_MAX_PACKET_SIZE (1024)
 
-#define MQTTSN_DEFAULT_KEEPALIVE   900     // 1H
-#define MQTTSN_DEFAULT_DURATION    900     // 15min
-#define MQTTSN_TIME_SEARCHGW         3
-#define MQTTSN_TIME_RETRY           10
-#define MQTTSN_RETRY_COUNT           3
+#define MQTTSN_DEFAULT_KEEPALIVE   (900)     // 1H
+#define MQTTSN_DEFAULT_DURATION    (900)     // 15min
+#define MQTTSN_TIME_SEARCHGW        ( 3)
+#define MQTTSN_TIME_RETRY           (10)
+#define MQTTSN_RETRY_COUNT           (3)
 
 /****************************************
       Application config structures
