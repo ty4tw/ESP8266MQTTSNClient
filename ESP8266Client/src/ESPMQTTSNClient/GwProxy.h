@@ -31,15 +31,14 @@
 #ifndef GWPROXY_H_
 #define GWPROXY_H_
 
+#include <stdio.h>
+#include <string.h>
+
 #include "MqttsnClientApp.h"
 #include "NetworkUdp.h"
 #include "Timer.h"
 #include "RegisterManager.h"
 #include "TopicTable.h"
-
-#include <stdio.h>
-#include <string.h>
-
 using namespace std;
 
 #define GW_LOST              0
@@ -68,19 +67,18 @@ public:
 	~GwProxy();
 
 	void     initialize(NETCONF netconf, MqttsnConfig mqconf);
-	void     networkClose(void);
 	void     connect(void);
 	void     disconnect(uint16_t sec = 0);
-	void     close(void);
 	int      getMessage(void);
-	uint16_t registerTopic(char* topic, uint16_t toipcId);
-
+	uint16_t registerTopic(const char* topic, uint16_t toipcId);
 	void     setWillTopic(const char* willTopic, uint8_t qos, bool retain = false);
 	void     setWillMsg(const char* willMsg);
 	void     setCleanSession(bool);
 	void     setKeepAliveDuration(uint16_t duration);
 	void     setAdvertiseDuration(uint16_t duration);
 	void     reconnect(void);
+	void     networkClose(void);
+	void     networkOpen(void);
 	int      writeMsg(const uint8_t* msg);
 	void     resetPingReqTimer(void);
 	uint16_t getNextMsgId();
@@ -93,7 +91,7 @@ private:
 	void     writeGwMsg(void);
 	void     checkPingReq(void);
 	void     checkAdvertise(void);
-	int      getConnectResponce(void);
+	void     getConnectResponce(void);
 	int      getDisconnectResponce(void);
 
 	Network     _network;
@@ -121,6 +119,7 @@ private:
 	Timer       _keepAliveTimer;
 	uint16_t    _tSleep;
 	char        _msg[MQTTSN_MAX_MSG_LENGTH + 1];
+	NETCONF*    _netConf;
 };
 
 

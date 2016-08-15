@@ -28,10 +28,6 @@
  *
  */
 
-#include "MqttsnClientApp.h"
-#include "MqttsnClient.h"
-#include "GwProxy.h"
-#include "Timer.h"
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -39,6 +35,12 @@
 #include <WiFiClient.h>
 #include <ArduinoOTA.h>
 #include <Arduino.h>
+
+#include "MqttsnClientApp.h"
+#include "MqttsnClient.h"
+#include "GwProxy.h"
+#include "Timer.h"
+#include "Payload.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -54,6 +56,12 @@ extern const char* thePasswd;
 extern const char* theSNTPserver;
 extern int theSNTPinterval;
 extern int theOTATimeout;
+extern int theTimeDifference;
+extern void interruptCallback(uint8_t gpioNo);
+extern "C" {
+#include <user_interface.h>
+#include <gpio.h>
+}
 /*=====================================
        MqttsnClient
  ======================================*/
@@ -65,6 +73,7 @@ MqttsnClient* theClient = new MqttsnClient();
 MqttsnClient::MqttsnClient()
 {
 	_intCallback = 0;
+	_gpio0pre = 1;
 }
 
 MqttsnClient::~MqttsnClient()
@@ -83,19 +92,39 @@ void MqttsnClient::networkClose(void)
 	_gwProxy.networkClose();
 }
 
-void MqttsnClient::registerInt0Callback(void (*callback)())
+void MqttsnClient::registerInt0Callback(void (*callback)(uint8_t))
 {
 	_intCallback = callback;
 }
 
+void MqttsnClient::checkGPIOInput(void)
+{
+	uint8_t val, chkval;
+	do
+	{
+		val = digitalRead(0);
+		delay(20);
+		chkval = digitalRead(0);
+		delay(20);
+	}
+	while ( val != chkval );
+
+	if ( val == 1 && _gpio0pre == 0 )
+	{
+		_intCallback(0);
+		_gpio0pre = 1;
+	}
+	else if ( val == 0 )
+	{
+		_gpio0pre = 0;
+	}
+
+}
+
+
 void MqttsnClient::addTask(void)
 {
 	_taskMgr.add(theTaskList);
-}
-
-void MqttsnClient::setSleepMode(bool mode)
-{
-	_sleepMode = mode;
 }
 
 GwProxy* MqttsnClient::getGwProxy(void)
@@ -131,7 +160,7 @@ TopicTable* MqttsnClient::getTopicTable(void)
 	return _gwProxy.getTopicTable();
 }
 
-void MqttsnClient::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain)
+void MqttsnClient::publish(const char* topicName, Payload* payload, uint8_t qos, bool retain)
 {
 	_pubMgr.publish(topicName, payload, qos, retain);
 }
@@ -141,7 +170,7 @@ void MqttsnClient::publish(const char* topicName, uint8_t* payload, uint16_t len
 	_pubMgr.publish(topicName, payload, len, qos, retain);
 }
 
-void MqttsnClient::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain)
+void MqttsnClient::publish(uint16_t topicId, Payload* payload, uint8_t qos, bool retain)
 {
 	_pubMgr.publish(topicId, payload, qos, retain);
 }
@@ -176,10 +205,7 @@ void MqttsnClient::disconnect(uint16_t sleepInSecs)
 void MqttsnClient::run(void)
 {
 	_taskMgr.run();
-	if (sleep())
-	{
-		_intCallback();
-	}
+	sleep();
 }
 
 void MqttsnClient::onConnect(void)
@@ -208,10 +234,31 @@ void MqttsnClient::indicator(bool onOff)
 	}
 }
 
-int MqttsnClient::sleep(void)
+void MqttsnClient::setSleepDuration(uint32_t duration)
 {
-	return 0;
+	_sleepDuration = duration;
 }
+
+void sleep_wakeup(void)
+{
+		wifi_fpm_close();
+		wifi_set_opmode(STATION_MODE);
+		wifi_station_connect();
+}
+
+void MqttsnClient::sleep(void)
+{
+	if (_sleepDuration)
+	{
+		wifi_station_disconnect();
+		wifi_set_opmode(NULL_MODE);
+		wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+		wifi_fpm_open();
+		wifi_fpm_set_wakeup_cb(sleep_wakeup);
+		wifi_fpm_do_sleep(_sleepDuration * 1000);
+	}
+}
+
 
 /*=====================================
             OTA Setup
@@ -262,10 +309,12 @@ void loop()
 {
 	if ( !theInitialize_done )
 	{
+		gpio_init();
 		theClient->addTask();
+		theClient->registerInt0Callback(interruptCallback);
 		theClient->initialize(theNetworkConfig, theMqttsnConfig);
-		Timer::initialize(0, 0, theSNTPserver, NULL, NULL, theSNTPinterval);
-		theClient->setSleepMode(theMqttsnConfig.sleep);
+		Timer::initialize(theTimeDifference, 0, theSNTPserver, NULL, NULL, theSNTPinterval);
+		theClient->setSleepDuration(theMqttsnConfig.sleepDuration);
 		theInitialize_done = true;
 	}
 
@@ -273,14 +322,15 @@ void loop()
 	theClient->run();
 	if (theOTAflag)
 	{
-		MQTTSNPayload* pl = new MQTTSNPayload(128);
+		Payload* pl = new Payload(128);
 		if ( pl )
 		{
 			D_OTALOG("OTA start prepair\n");
 			pl->set_str(theClient->getClientId());
 			pl->set_str(WiFi.localIP().toString().c_str());
 			pl->set_uint32(theOTAportNo);
-			theClient->publish(0x002, pl, 1);
+			theClient->publish(MQTTSN_TOPICID_PREDEFINED_OTA_RESP, pl, 1,
+					           MQTTSN_TOPIC_TYPE_PREDEFINED);
 			theClient->run();
 			theClient->networkClose();
 			setOTA();

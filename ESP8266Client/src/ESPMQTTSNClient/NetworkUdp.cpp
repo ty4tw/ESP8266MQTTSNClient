@@ -124,7 +124,7 @@ UdpPort::~UdpPort(){
 
 void UdpPort::close(){
 	_udpMulticast.stop();
-	_udpMulticast.stop();
+	_udpUnicast.stop();
 }
 
 
@@ -136,7 +136,7 @@ bool UdpPort::open(UdpConfig config){
 
 	if ( WiFi.status() != WL_CONNECTED)
 	{
-		D_NWLOG("UdpPort::WiFi Attempting to connect.\n");
+		D_NWLOG("\nUdpPort::WiFi Attempting to connect.\n");
 		WiFi.mode(WIFI_STA);
 		WiFi.begin(theSsid, thePasswd);
 	}
@@ -177,7 +177,7 @@ int UdpPort::unicast(const uint8_t* buf, uint32_t length, uint32_t ipAddress, ui
 	}
 #endif
 
-	return status;
+	return status;  // sucess:1  error:0
 }
 
 
@@ -196,7 +196,7 @@ int UdpPort::multicast( const uint8_t* buf, uint32_t length ){
 	}
 #endif
 
-	return status;
+	return status; // sucess:1  error:0
 }
 
 bool UdpPort::checkRecvBuf(){

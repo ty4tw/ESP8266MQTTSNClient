@@ -28,15 +28,45 @@
  *
  */
 
-#include <MqttsnClientApp.h>
+#include <Arduino.h>
+#include <string.h>
+
+#include "MqttsnClientApp.h"
 
 using namespace std;
+extern int theTimeDifference;
 /*=====================================
         Global functions
  ======================================*/
-#ifndef CPU_BIGENDIANN
+const char* getFileName(const char* fileName)
+{
+	int posSep = 0;
+	int pos = 0;
+	for ( pos = 0; fileName[pos] != 0; pos++)
+	{
+		if ( fileName[pos] == '/' )
+		{
+			posSep = pos + 1;
+		}
+	}
+	return fileName + posSep;
+}
 
-/*--- For Little endianness ---*/
+void stackTraceEntry(const char* fileName, const char* funcName, const int line)
+{
+	Serial.printf("Enter into %s  %s line %-4d\n", getFileName(fileName), funcName, line);
+}
+
+void stackTraceExit(const char* fileName, const char* funcName, const int line)
+{
+	Serial.printf("Exit  from %s  %s line %-4d\n", getFileName(fileName), funcName, line);
+}
+
+void stackTraceExitRc(const char* fileName, const char* funcName, const int line, void* rc)
+{
+	Serial.printf("Exit  from  %s  %s line %-4d  rc %x\n", getFileName(fileName), funcName, line, rc);
+}
+
 
 uint16_t getUint16(const uint8_t* pos){
 	uint16_t val = ((uint16_t)*pos++ << 8);
@@ -85,62 +115,6 @@ void setFloat32(uint8_t* pos, float flt){
     *pos++ = val.d[1];
     *pos   = val.d[0];
 }
-
-#else
-
-/*--- For Big endianness ---*/
-
-uint16_t getUint16(const uint8_t* pos){
-  uint16_t val = *pos++;
-  return val += ((uint16_t)*pos++ << 8);
-}
-
-void setUint16(uint8_t* pos, uint16_t val){
-	*pos++ =  val & 0xff;
-	*pos   = (val >>  8) & 0xff;
-}
-
-uint32_t getUint32(const uint8_t* pos){
-    long val = uint32_t(*(pos + 3)) << 24;
-    val += uint32_t(*(pos + 2)) << 16;
-	val += uint32_t(*(pos + 1)) <<  8;
-	return val += *pos;
-}
-
-void setUint32(uint8_t* pos, uint32_t val){
-    *pos++ =  val & 0xff;
-    *pos++ = (val >>  8) & 0xff;
-    *pos++ = (val >> 16) & 0xff;
-    *pos   = (val >> 24) & 0xff;
-}
-
-float getFloat32(const uint8_t* pos){
-	union{
-		float flt;
-		uint8_t d[4];
-	}val;
-
-    val.d[0] = *pos++;
-	val.d[1] = *pos++;
-	val.d[2] = *pos++;
-	val.d[3] = *pos;
-	return val.flt;
-}
-
-void setFloat32(uint8_t* pos, float flt){
-	union{
-		float flt;
-		uint8_t d[4];
-	}val;
-	val.flt = flt;
-    *pos++ = val.d[0];
-    *pos++ = val.d[1];
-    *pos++ = val.d[2];
-    *pos   = val.d[3];
-}
-
-#endif  // CPU_LITTLEENDIANN
-
 
 
 

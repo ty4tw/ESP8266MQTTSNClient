@@ -27,15 +27,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "MqttsnClientApp.h"
-#include "MqttsnClient.h"
-#include "GwProxy.h"
 #include <Arduino.h>
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
 #include <Esp.h>
+
+#include "MqttsnClientApp.h"
+#include "MqttsnClient.h"
+#include "GwProxy.h"
+
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 
@@ -43,12 +44,22 @@ extern void setUint16(uint8_t* pos, uint16_t val);
 extern uint16_t getUint16(const uint8_t* pos);
 extern MqttsnClient* theClient;
 /*=====================================
-        Class GwProxy
+ Class GwProxy
  ======================================*/
-GwProxy::GwProxy(){
+static const char* packet_names[] =
+{
+	"ADVERTISE", "SEARCHGW", "GWINFO", "RESERVED", "CONNECT", "CONNACK",
+	"WILLTOPICREQ", "WILLTOPIC", "WILLMSGREQ", "WILLMSG", "REGISTER", "REGACK",
+	"PUBLISH", "PUBACK", "PUBCOMP", "PUBREC", "PUBREL", "RESERVED",
+	"SUBSCRIBE", "SUBACK", "UNSUBSCRIBE", "UNSUBACK", "PINGREQ", "PINGRESP",
+	"DISCONNECT", "RESERVED", "WILLTOPICUPD", "WILLTOPICRESP", "WILLMSGUPD",
+	"WILLMSGRESP"
+};
+GwProxy::GwProxy()
+{
 	_nextMsgId = 0;
 	_status = GW_LOST;
-    _gwId = 0;
+	_gwId = 0;
 	_willTopic = 0;
 	_willMsg = 0;
 	_qosWill = 0;
@@ -61,73 +72,86 @@ GwProxy::GwProxy(){
 	_clientId = 0;
 }
 
-GwProxy::~GwProxy(){
-	close();
-}
-
-void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
-	_network.initialize(netconf);
-    _willTopic = mqconf.willTopic;
-    _willMsg = mqconf.willMsg;
-    _qosWill = mqconf.willQos;
-    _retainWill = mqconf.willRetain;
-    _cleanSession = mqconf.cleanSession;
-    _tkeepAlive = mqconf.keepAlive;
-    if (_clientId)
-    {
-    	delete _clientId;
-    }
-    _clientId = new char(strlen(netconf.clientId) + 8);
-	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
-}
-
-void GwProxy::networkClose(void)
+GwProxy::~GwProxy()
 {
-	_network.close();
+	networkOpen();
 }
 
-void GwProxy::connect(){
+void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf)
+{
+	_netConf = &netconf;
+	_network.initialize(*_netConf);
+	_willTopic = mqconf.willTopic;
+	_willMsg = mqconf.willMsg;
+	_qosWill = mqconf.willQos;
+	_retainWill = mqconf.willRetain;
+	_cleanSession = mqconf.cleanSession;
+	_tkeepAlive = mqconf.keepAlive;
+	if (_clientId)
+	{
+		delete _clientId;
+	}
+	_clientId = new char(strlen(netconf.clientId) + 8);
+	sprintf(_clientId, "%s-%06x", netconf.clientId, ESP.getChipId());
+}
+
+void GwProxy::connect()
+{
 	char* pos;
 
-	while (_status != GW_CONNECTED){
+	while (_status != GW_CONNECTED)
+	{
 		pos = _msg;
 
-		if (_status == GW_SEND_WILLMSG){
-			*pos++ = 2 + (uint8_t)strlen(_willMsg);
+		if (_status == GW_SEND_WILLMSG)
+		{
+			*pos++ = 2 + (uint8_t) strlen(_willMsg);
 			*pos++ = MQTTSN_TYPE_WILLMSG;
-			strcpy(pos,_willMsg);          // WILLMSG
+			strcpy(pos, _willMsg);          // WILLMSG
 			_status = GW_WAIT_CONNACK;
 			writeGwMsg();
-		}else if (_status == GW_SEND_WILLTOPIC){
-			*pos++ = 3 + (uint8_t)strlen(_willTopic);
+		}
+		else if (_status == GW_SEND_WILLTOPIC)
+		{
+			*pos++ = 3 + (uint8_t) strlen(_willTopic);
 			*pos++ = MQTTSN_TYPE_WILLTOPIC;
 			*pos++ = _qosWill | _retainWill;
-			strcpy(pos,_willTopic);        // WILLTOPIC
+			strcpy(pos, _willTopic);        // WILLTOPIC
 			_status = GW_WAIT_WILLMSGREQ;
 			writeGwMsg();
-		}else if (_status == GW_CONNECTING || _status == GW_DISCONNECTED){
+		}
+		else if (_status == GW_CONNECTING || _status == GW_DISCONNECTED)
+		{
 			uint8_t clientIdLen = strlen(_clientId);
 			*pos++ = 6 + clientIdLen;
 			*pos++ = MQTTSN_TYPE_CONNECT;
 			pos++;
-			if (_cleanSession){
+			if (_cleanSession)
+			{
 				_msg[2] = MQTTSN_FLAG_CLEAN;
 			}
 			*pos++ = MQTTSN_PROTOCOL_ID;
-			setUint16((uint8_t*)pos, _tkeepAlive);
+			setUint16((uint8_t*) pos, _tkeepAlive);
 			pos += 2;
 			strncpy(pos, _clientId, clientIdLen);
-			_msg[ 6 + clientIdLen] = 0;
-			if (_willMsg && _willTopic){
-				_msg[2] = _msg[2] | MQTTSN_FLAG_WILL;   // CONNECT
-				_status = GW_WAIT_WILLTOPICREQ;
-			}else{
+			_msg[6 + clientIdLen] = 0;
+			if (_willMsg && _willTopic)
+			{
+				if (strlen(_willMsg) && strlen(_willTopic))
+				{
+					_msg[2] = _msg[2] | MQTTSN_FLAG_WILL;   // CONNECT
+					_status = GW_WAIT_WILLTOPICREQ;
+				}
+			}
+			else
+			{
 				_status = GW_WAIT_CONNACK;
 			}
 			writeGwMsg();
 			_connectRetry = MQTTSN_RETRY_COUNT;
-		}else if (_status == GW_LOST){
-
+		}
+		else if (_status == GW_LOST)
+		{
 			*pos++ = 3;
 			*pos++ = MQTTSN_TYPE_SEARCHGW;
 			*pos = 0;                        // SERCHGW
@@ -140,119 +164,153 @@ void GwProxy::connect(){
 	return;
 }
 
-int GwProxy::getConnectResponce(void){
+void GwProxy::getConnectResponce(void)
+{
 	int len = readMsg();
 
-	if (len == 0){
-		if (_sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
+	if (len == 0)
+	{
+		if (_sendUTC + MQTTSN_TIME_RETRY < time(NULL))
+		{
 			if (_msg[1] == MQTTSN_TYPE_CONNECT)
 			{
 				_connectRetry--;
 			}
-			if (--_retryCount > 0){
-				writeMsg((const uint8_t*)_msg);  // Not writeGwMsg() : not to reset the counter.
-				_sendUTC = Timer::getUnixTime();
-			}else{
+
+			if (--_retryCount > 0)
+			{
+				writeMsg((const uint8_t*) _msg);  // Not writeGwMsg() : not to reset the counter.
+				_sendUTC = time(NULL);
+			}
+			else
+			{
 				_sendUTC = 0;
-				if ( _status > GW_SEARCHING && _connectRetry > 0){
+				if (_status > GW_SEARCHING && _connectRetry > 0)
+				{
 					_status = GW_CONNECTING;
-				}else{
+				}
+				else
+				{
 					_status = GW_LOST;
 					_gwId = 0;
 				}
-				return -1;
 			}
 		}
-		return 0;
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_GWINFO && _status == GW_SEARCHING){
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_GWINFO && _status == GW_SEARCHING)
+	{
 		_network.setGwAddress();
-        _gwId = _mqttsnMsg[1];
+		_gwId = _mqttsnMsg[1];
 		_status = GW_CONNECTING;
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_WILLTOPICREQ && _status == GW_WAIT_WILLTOPICREQ){
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_WILLTOPICREQ && _status == GW_WAIT_WILLTOPICREQ)
+	{
 		_status = GW_SEND_WILLTOPIC;
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_WILLMSGREQ && _status == GW_WAIT_WILLMSGREQ){
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_WILLMSGREQ && _status == GW_WAIT_WILLMSGREQ)
+	{
 		_status = GW_SEND_WILLMSG;
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_CONNACK && _status == GW_WAIT_CONNACK){
-		if (_mqttsnMsg[1] == 0x00){
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_CONNACK && _status == GW_WAIT_CONNACK)
+	{
+		if (_mqttsnMsg[1] == MQTTSN_RC_ACCEPTED)
+		{
 			_status = GW_CONNECTED;
 			_connectRetry = MQTTSN_RETRY_COUNT;
 			_keepAliveTimer.start(_tkeepAlive * 1000);
 			_topicTbl.clearTopic();
 			theClient->onConnect();  // SUBSCRIBEs are conducted
-		}else{
+		}
+		else
+		{
 			_status = GW_CONNECTING;
 		}
 	}
-	return 1;
 }
 
-void GwProxy::reconnect(void){
+void GwProxy::reconnect(void)
+{
 	_status = GW_DISCONNECTED;
 	connect();
 }
 
-void GwProxy::disconnect(uint16_t secs){
-    _tSleep = secs;
-    _status = GW_DISCONNECTING;
-    
+void GwProxy::disconnect(uint16_t secs)
+{
+	_tSleep = secs;
+	_status = GW_DISCONNECTING;
+
 	_msg[1] = MQTTSN_TYPE_DISCONNECT;
 
-	if (secs){
+	if (secs)
+	{
 		_msg[0] = 4;
 		setUint16((uint8_t*) _msg + 2, secs);
-	}else{
+	}
+	else
+	{
 		_msg[0] = 2;
 		_keepAliveTimer.stop();
 	}
 
 	writeGwMsg();
 
-	while ( _status != GW_DISCONNECTED && _status != GW_SLEPT){
-		if (getDisconnectResponce() < 0){
+	while (_status != GW_DISCONNECTED && _status != GW_SLEPT)
+	{
+		if (getDisconnectResponce() < 0)
+		{
 			_status = GW_LOST;
 			return;
 		}
 	}
 }
 
-int GwProxy::getDisconnectResponce(void){
+int GwProxy::getDisconnectResponce(void)
+{
 	int len = readMsg();
 
-	if (len == 0){
-		if (_sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
-			if (--_retryCount >= 0){
-				writeMsg((const uint8_t*)_msg);
-				_sendUTC = Timer::getUnixTime();
-			}else{
+	if (len == 0)
+	{
+		if (_sendUTC + MQTTSN_TIME_RETRY < time(NULL))
+		{
+			if (--_retryCount >= 0)
+			{
+				writeMsg((const uint8_t*) _msg);
+				_sendUTC = time(NULL);
+			}
+			else
+			{
 				_status = GW_LOST;
 				_gwId = 0;
 				return -1;
 			}
 		}
 		return 0;
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_DISCONNECT){
-		if (_tSleep){
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_DISCONNECT)
+	{
+		if (_tSleep)
+		{
 			_status = GW_SLEEPING;
 			_keepAliveTimer.start(_tSleep);
-		}else{
+		}
+		else
+		{
 			_status = GW_DISCONNECTED;
 		}
 	}
 	return 0;
 }
 
-int GwProxy::getMessage(void){
+int GwProxy::getMessage(void)
+{
 	int len = readMsg();
-	if (len < 0){
+	if (len < 0)
+	{
 		return len;   //error
 	}
-#ifdef DEBUG_MQTTSN
-	if (len){
-		D_MQTTLOG(" recved msgType %x\n", _mqttsnMsg[0]);
-	}
-#endif
 
-	if (len == 0){
+	if (len == 0)
+	{
 		connect();
 		// Check PINGREQ required
 		checkPingReq();
@@ -267,99 +325,153 @@ int GwProxy::getMessage(void){
 		theClient->getPublishManager()->checkTimeout();
 
 		// Check Timeout of SUBSCRIBEs,
-        theClient->getSubscribeManager()->checkTimeout();
+		theClient->getSubscribeManager()->checkTimeout();
+		goto exit;
+	}
+	else
+	{
+		D_MQTTLOG(" recv %s", packet_names[_mqttsnMsg[0]]);
+	}
 
-	}else if (_mqttsnMsg[0] == MQTTSN_TYPE_PUBLISH){
-        theClient->getPublishManager()->published(_mqttsnMsg, len);
+	if (_mqttsnMsg[0] == MQTTSN_TYPE_PUBLISH)
+	{
+		theClient->getPublishManager()->published(_mqttsnMsg, len);
 
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_PUBACK || _mqttsnMsg[0] == MQTTSN_TYPE_PUBCOMP ||
-			_mqttsnMsg[0] == MQTTSN_TYPE_PUBREC || _mqttsnMsg[0] == MQTTSN_TYPE_PUBREL ){
-        theClient->getPublishManager()->responce(_mqttsnMsg, (uint16_t)len);
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_PUBACK )
+	{
+		D_MQTTLOG("  msgId: %04x rc:%x", getUint16((const uint8_t*)(_mqttsnMsg+ 3)), _mqttsnMsg[5]);
+		theClient->getPublishManager()->responce(_mqttsnMsg, (uint16_t) len);
 
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_SUBACK || _mqttsnMsg[0] == MQTTSN_TYPE_UNSUBACK){
-        theClient->getSubscribeManager()->responce(_mqttsnMsg);
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_PUBCOMP || _mqttsnMsg[0] == MQTTSN_TYPE_PUBREC
+			|| _mqttsnMsg[0] == MQTTSN_TYPE_PUBREL)
+	{
+		D_MQTTLOG(" msgId:%04x", getUint16((const uint8_t*)(_mqttsnMsg+ 1)));
+		theClient->getPublishManager()->responce(_mqttsnMsg, (uint16_t) len);
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_SUBACK || _mqttsnMsg[0] == MQTTSN_TYPE_UNSUBACK)
+	{
+		theClient->getSubscribeManager()->responce(_mqttsnMsg);
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_REGISTER)
+	{
+		_regMgr.responceRegister(_mqttsnMsg, len);
 
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_REGISTER){
-    	_regMgr.responceRegister(_mqttsnMsg, len);
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_REGACK)
+	{
+		_regMgr.responceRegAck(getUint16(_mqttsnMsg + 3), getUint16(_mqttsnMsg + 1));
 
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_REGACK){
-        _regMgr.responceRegAck(getUint16(_mqttsnMsg + 3), getUint16(_mqttsnMsg + 1));
-
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_PINGRESP){
-        if (_pingStatus == GW_WAIT_PINGRESP){
-            _pingStatus = 0;
-            resetPingReqTimer();
-        }
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_DISCONNECT){
-    	_status = GW_LOST;
-    	_gwAliveTimer.stop();
-    	_keepAliveTimer.stop();
-    }else if (_mqttsnMsg[0] == MQTTSN_TYPE_ADVERTISE){
-    	if (getUint16((const uint8_t*)(_mqttsnMsg + 2)) < 61){
-    		_tAdv = getUint16((const uint8_t*)(_mqttsnMsg + 2)) * 1500;
-    	}else{
-    		_tAdv = getUint16((const uint8_t*)(_mqttsnMsg + 2)) * 1100;
-    	}
-        _gwAliveTimer.start(_tAdv);
-    }
-    return 0;
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_PINGRESP)
+	{
+		if (_pingStatus == GW_WAIT_PINGRESP)
+		{
+			_pingStatus = 0;
+			resetPingReqTimer();
+		}
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_DISCONNECT)
+	{
+		_status = GW_LOST;
+		_gwAliveTimer.stop();
+		_keepAliveTimer.stop();
+	}
+	else if (_mqttsnMsg[0] == MQTTSN_TYPE_ADVERTISE)
+	{
+		if (getUint16((const uint8_t*) (_mqttsnMsg + 2)) < 61)
+		{
+			_tAdv = getUint16((const uint8_t*) (_mqttsnMsg + 2)) * 1500;
+		}
+		else
+		{
+			_tAdv = getUint16((const uint8_t*) (_mqttsnMsg + 2)) * 1100;
+		}
+		_gwAliveTimer.start(_tAdv);
+	}
+	D_MQTTLOG("\n");
+exit:
+	return 0;
 }
 
-
-
-
-uint16_t GwProxy::registerTopic(char* topicName, uint16_t topicId){
-    if (topicId){
-    	_topicTbl.setTopicId(NULL, topicId, MQTTSN_TOPIC_TYPE_PREDEFINED);
-    }else{
-        uint16_t topicId = _topicTbl.getTopicId(topicName);
-        if (topicId == 0){
-            _regMgr.registerTopic(topicName);
-        }
-    }
+uint16_t GwProxy::registerTopic(const char* topicName, uint16_t topicId)
+{
+	if (topicId)
+	{
+		_topicTbl.setTopicId(NULL, topicId, MQTTSN_TOPIC_TYPE_PREDEFINED);
+	}
+	else
+	{
+		uint16_t topicId = _topicTbl.getTopicId(topicName);
+		if (topicId == 0)
+		{
+			_regMgr.registerTopic(topicName);
+		}
+	}
 	return topicId;
 }
 
-
-int GwProxy::writeMsg(const uint8_t* msg){
+int GwProxy::writeMsg(const uint8_t* msg)
+{
 	uint16_t len;
-	uint8_t  rc;
+	uint8_t rc;
 
-	if (msg[0] == 0x01){
+	if (msg[0] == 0x01)
+	{
 		len = getUint16(msg + 1);
-	}else{
+	}
+	else
+	{
 		len = msg[0];
 	}
 
-	if (msg[0] == 3 && msg[1] == MQTTSN_TYPE_SEARCHGW){
-		rc = _network.broadcast(msg,len);
-	}else{
-		rc = _network.unicast(msg,len);
+	if (msg[0] == 3 && msg[1] == MQTTSN_TYPE_SEARCHGW)
+	{
+		rc = _network.broadcast(msg, len);
+	}
+	else
+	{
+		rc = _network.unicast(msg, len);
+	}
+
+	if ( rc == 0 )  // success:1 error:0
+	{
+		D_MQTTLOG("\nNetwork write error\n\n");
+		//theClient->getGwProxy()->networkClose();
+		//theClient->getGwProxy()->networkOpen();
 	}
 	return rc;
 
 }
 
-void GwProxy::writeGwMsg(void){
+void GwProxy::writeGwMsg(void)
+{
 	_retryCount = MQTTSN_RETRY_COUNT;
-	writeMsg((const uint8_t*)_msg);
-	_sendUTC = Timer::getUnixTime();
+	writeMsg((const uint8_t*) _msg);
+	_sendUTC = time(NULL);
 }
 
-int GwProxy::readMsg(void){
+int GwProxy::readMsg(void)
+{
 	int len = MQTTSN_MAX_PACKET_SIZE;
 	_mqttsnMsg = _network.getMessage(&len);
-	if (_mqttsnMsg == 0){
+	if (_mqttsnMsg == 0)
+	{
 		return 0;
 	}
 
-	if (_mqttsnMsg[0] == 0x01){
-		int msgLen = (int) getUint16((const uint8_t*)_mqttsnMsg + 1);
-		if (len != msgLen){
+	if (_mqttsnMsg[0] == 0x01)
+	{
+		int msgLen = (int) getUint16((const uint8_t*) _mqttsnMsg + 1);
+		if (len != msgLen)
+		{
 			_mqttsnMsg += 3;
 			len = msgLen - 3;
 		}
-	}else{
+	}
+	else
+	{
 		_mqttsnMsg += 1;
 		len -= 1;
 	}
@@ -367,66 +479,87 @@ int GwProxy::readMsg(void){
 	return len;
 }
 
-void GwProxy::setWillTopic(const char* willTopic, uint8_t qos, bool retain){
+void GwProxy::setWillTopic(const char* willTopic, uint8_t qos, bool retain)
+{
 	_willTopic = willTopic;
 	_retainWill = _qosWill = 0;
-	if (qos == 1){
+	if (qos == 1)
+	{
 		_qosWill = MQTTSN_FLAG_QOS_1;
-	}else if (qos == 2){
+	}
+	else if (qos == 2)
+	{
 		_qosWill = MQTTSN_FLAG_QOS_2;
 	}
-	if (retain){
+	if (retain)
+	{
 		_retainWill = MQTTSN_FLAG_RETAIN;
 	}
 }
-void GwProxy::setWillMsg(const char* willMsg){
+void GwProxy::setWillMsg(const char* willMsg)
+{
 	_willMsg = willMsg;
 }
 
-
-void GwProxy::setCleanSession(bool flg){
-	if (flg){
+void GwProxy::setCleanSession(bool flg)
+{
+	if (flg)
+	{
 		_cleanSession = MQTTSN_FLAG_CLEAN;
-	}else{
+	}
+	else
+	{
 		_cleanSession = 0;
 	}
 }
 
-uint16_t GwProxy::getNextMsgId(void){
+uint16_t GwProxy::getNextMsgId(void)
+{
 	_nextMsgId++;
-    if (_nextMsgId == 0){
-    	_nextMsgId = 1;
-    }
-    return _nextMsgId;
+	if (_nextMsgId == 0)
+	{
+		_nextMsgId = 1;
+	}
+	return _nextMsgId;
 }
 
-void GwProxy::checkPingReq(void){
+void GwProxy::checkPingReq(void)
+{
 	uint8_t msg[2];
 	msg[0] = 0x02;
 	msg[1] = MQTTSN_TYPE_PINGREQ;
-    
-	if (_status == GW_CONNECTED && _keepAliveTimer.isTimeUp() && _pingStatus != GW_WAIT_PINGRESP){
+
+	if (_status == GW_CONNECTED && _keepAliveTimer.isTimeUp() && _pingStatus != GW_WAIT_PINGRESP)
+	{
 		_pingStatus = GW_WAIT_PINGRESP;
-        _pingRetryCount = MQTTSN_RETRY_COUNT;
-        _pingSendUTC = Timer::getUnixTime();
-	}else if (_pingStatus == GW_WAIT_PINGRESP){
-        if (_pingSendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
-    		if (--_pingRetryCount > 0){
-				writeMsg((const uint8_t*)msg);
-				_pingSendUTC = Timer::getUnixTime();
-			}else{
+		_pingRetryCount = MQTTSN_RETRY_COUNT;
+		_pingSendUTC = time(NULL);
+	}
+	else if (_pingStatus == GW_WAIT_PINGRESP)
+	{
+		if (_pingSendUTC + MQTTSN_TIME_RETRY < time(NULL))
+		{
+			if (--_pingRetryCount > 0)
+			{
+				writeMsg((const uint8_t*) msg);
+				_pingSendUTC = time(NULL);
+			}
+			else
+			{
 				_status = GW_LOST;
 				_gwId = 0;
-                _pingStatus = 0;
-                _keepAliveTimer.stop();
-                D_MQTTLOG("   !!! PINGREQ Timeout\n");
+				_pingStatus = 0;
+				_keepAliveTimer.stop();
+				D_MQTTLOG("   !!! PINGREQ Timeout\n");
 			}
 		}
 	}
 }
 
-void GwProxy::checkAdvertise(void){
-	if ( _gwAliveTimer.isTimeUp()){
+void GwProxy::checkAdvertise(void)
+{
+	if (_gwAliveTimer.isTimeUp())
+	{
 		_status = GW_LOST;
 		_gwId = 0;
 		_pingStatus = 0;
@@ -436,22 +569,33 @@ void GwProxy::checkAdvertise(void){
 	}
 }
 
-TopicTable* GwProxy::getTopicTable(void){
+TopicTable* GwProxy::getTopicTable(void)
+{
 	return &_topicTbl;
 }
 
-RegisterManager* GwProxy::getRegisterManager(void){
+RegisterManager* GwProxy::getRegisterManager(void)
+{
 	return &_regMgr;
 }
 
-void GwProxy::resetPingReqTimer(void){
+void GwProxy::resetPingReqTimer(void)
+{
 	_keepAliveTimer.start(_tkeepAlive * 1000);
 }
 
-void GwProxy::close() {
+void GwProxy::networkOpen()
+{
+	_network.initialize(*_netConf);
+}
+
+
+void GwProxy::networkClose(void)
+{
 	_network.close();
 }
 
-const char* GwProxy::getClientId(void) {
+const char* GwProxy::getClientId(void)
+{
 	return _clientId;
 }

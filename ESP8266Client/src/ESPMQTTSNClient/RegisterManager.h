@@ -50,7 +50,7 @@ class RegisterManager{
 public:
 	RegisterManager();
 	~RegisterManager();
-	void registerTopic(char* topicName);
+	void registerTopic(const char* topicName);
 	void responceRegAck(uint16_t msgId, uint16_t topicId);
 	void responceRegister(uint8_t* msg, uint16_t msglen);
 	bool isDone(void);
@@ -63,6 +63,7 @@ private:
 	void remove(RegQueElement* elm);
 	void send(RegQueElement* elm);
 	RegQueElement* _first;
+	RegQueElement* _last;
 };
 }
 

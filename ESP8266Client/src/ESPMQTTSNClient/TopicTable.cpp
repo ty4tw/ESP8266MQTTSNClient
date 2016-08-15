@@ -1,5 +1,5 @@
 /*
- * TopicTable.cpp
+ * TopicTable.h
  *                      The BSD License
  *
  *           Copyright (c) 2015, tomoaki@tomy-tech.com
@@ -27,19 +27,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-#if defined(ARDUINO) && ARDUINO >= 100
-        #include <Arduino.h>
-#elif defined(ARDUINO) && ARDUINO < 100
-        #include "WProgram.h"
-#endif
-
-#include <MqttsnClientApp.h>
-#include <TopicTable.h>
-#include <inttypes.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "MqttsnClientApp.h"
+#include "TopicTable.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -88,7 +81,7 @@ uint8_t Topic::hasWildCard(uint8_t* pos){
     return 0;
 }
 
-bool Topic::isMatch(char* topic){
+bool Topic::isMatch(const char* topic){
     uint8_t pos;
 
 	if ( strlen(topic) < strlen(_topicStr)){
@@ -132,6 +125,7 @@ bool Topic::isMatch(char* topic){
  ======================================*/
 TopicTable::TopicTable(){
 	_first = 0;
+	_last = 0;
 }
 
 TopicTable::~TopicTable(){
@@ -139,7 +133,7 @@ TopicTable::~TopicTable(){
 }
 
 
-Topic* TopicTable::getTopic(char* topic){
+Topic* TopicTable::getTopic(const char* topic){
 	Topic* p = _first;
 	while(p){
 		if (p->_topicStr != 0 && strcmp(p->_topicStr, topic) == 0){
@@ -161,7 +155,7 @@ Topic* TopicTable::getTopic(uint16_t topicId, uint8_t topicType){
 	return 0;
 }
 
-uint16_t TopicTable::getTopicId(char* topic){
+uint16_t TopicTable::getTopicId(const char* topic){
 	Topic* p = getTopic(topic);
 	if (p){
 		return p->_topicId;
@@ -170,12 +164,12 @@ uint16_t TopicTable::getTopicId(char* topic){
 }
 
 
-char* TopicTable::getTopicName(Topic* topic){
+const char* TopicTable::getTopicName(Topic* topic){
 	return topic->_topicStr;
 }
 
 
-void TopicTable::setTopicId(char* topic, uint16_t id, uint8_t type){
+void TopicTable::setTopicId(const char* topic, uint16_t id, uint8_t type){
     Topic* tp = getTopic(topic);
     if (tp){
         tp->_topicId = id;
@@ -185,7 +179,7 @@ void TopicTable::setTopicId(char* topic, uint16_t id, uint8_t type){
 }
 
 
-bool TopicTable::setCallback(char* topic, TopicCallback callback){
+bool TopicTable::setCallback(const char* topic, TopicCallback callback){
 	Topic* p = getTopic(topic);
 	if (p){
 		p->_callback = callback;
@@ -214,35 +208,43 @@ int TopicTable::execCallback(uint16_t  topicId, uint8_t* payload, uint16_t paylo
 }
 
 
-Topic* TopicTable::add(char* topicName, uint16_t id, uint8_t type, TopicCallback callback, uint8_t alocFlg){
-    Topic* elm;
+Topic* TopicTable::add(const char* topicName, uint16_t id, uint8_t type, TopicCallback callback, uint8_t alocFlg){
+	Topic* last = _first;
+	Topic* prev = _first;
+	Topic* elm;
+
     if (topicName){
 	    elm = getTopic(topicName);
     }else{
         elm = getTopic(id, type);
     }
-    
+
 	if (elm == 0){
-		Topic* tp = _first;
 		elm = new Topic();
 		if(elm == 0){
 			return 0;
 		}
-		elm->_topicStr = topicName;
+		if ( last == 0){
+			_first = elm;
+			_last = elm;
+		}
+		elm->_topicStr =  const_cast <char*>(topicName);
 		elm->_topicId = id;
         elm->_topicType = type;
 		elm->_callback = callback;
 		elm->_malocFlg = alocFlg;
+		elm->_prev = 0;
 
-		if (tp == 0){
-			_first = elm;
-		}
-		while(tp){
-			if(tp->_next == 0){
-				tp->_next = elm;
-				break;
+		while(last){
+			prev = last;
+			if(prev->_next != 0){
+				last = prev->_next;
 			}else{
-				tp = tp->_next;
+				prev->_next = elm;
+				elm->_prev = prev;
+				elm->_next = 0;
+				last = 0;
+				_last = elm;
 			}
 		}
 	}else{
@@ -251,8 +253,33 @@ Topic* TopicTable::add(char* topicName, uint16_t id, uint8_t type, TopicCallback
 	return elm;
 }
 
+void TopicTable::remove(uint16_t topicId)
+{
+	Topic* elm = getTopic(topicId);
 
-Topic* TopicTable::match(char* topicName){
+	if (elm){
+		if (elm->_prev == 0){
+			_first = elm->_next;
+			if (elm->_next != 0){
+				elm->_next->_prev = 0;
+			}
+			else
+			{
+				_last = elm;
+			}
+			delete elm;
+		}else{
+			elm->_prev->_next = elm->_next;
+			if (elm->_next == 0)
+			{
+				_last = elm;
+			}
+			delete elm;
+		}
+	}
+}
+
+Topic* TopicTable::match(const char* topicName){
 	Topic* elm = _first;
 	while(elm){
 		if (elm->isMatch(topicName)){
@@ -271,4 +298,5 @@ void TopicTable::clearTopic(void){
 		delete p;
 		p = _first;
 	}
+	_last = 0;
 }

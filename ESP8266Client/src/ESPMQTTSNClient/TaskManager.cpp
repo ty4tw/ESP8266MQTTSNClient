@@ -27,14 +27,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-#include <MqttsnClientApp.h>
-#include <Timer.h>
-#include <TaskManager.h>
-#include <MqttsnClient.h>
-
 #include <stdio.h>
 #include <string.h>
+
+#include "MqttsnClientApp.h"
+#include "Timer.h"
+#include "TaskManager.h"
+#include "MqttsnClient.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
@@ -58,11 +57,12 @@ void TaskManager::add(TaskList* task){
 
 void TaskManager::run(void){
 	while (true){
+		theClient->checkGPIOInput();
 		theClient->getGwProxy()->getMessage();
 		for (_index = 0; _task[_index].callback > 0; _index++){
-			if ((_task[_index].prevTime + _task[_index].interval < Timer::getUnixTime()) &&
+			if ((_task[_index].prevTime + _task[_index].interval <= time(NULL)) &&
 				 _task[_index].count == 0){
-				_task[_index].prevTime = Timer::getUnixTime();
+				_task[_index].prevTime = time(NULL);
 				(_task[_index].callback)();
 			}
 		}

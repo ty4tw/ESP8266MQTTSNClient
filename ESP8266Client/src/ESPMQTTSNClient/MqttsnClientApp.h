@@ -40,10 +40,10 @@
 /*======================================
  *         Debug Flag
  ======================================*/
-#define DEBUG_NW
+//#define DEBUG_NW
 #define DEBUG_MQTTSN
 #define DEBUG_OTA
-
+//#define DEBUG_FUNC
 /****************************************
       MQTT-SN Parameters
 *****************************************/
@@ -64,7 +64,7 @@
 struct MqttsnConfig{
 	uint16_t keepAlive;
 	bool     cleanSession;
-	bool     sleep;
+	uint32_t sleepDuration;
 	const char* willTopic;
 	const char* willMsg;
     uint8_t  willQos;
@@ -78,13 +78,13 @@ struct UdpConfig{
 	uint16_t uPortNo;
 };
 
+typedef UdpConfig NETCONF;
 /*======================================
       MACROs for Application
 =======================================*/
 
 #define MQTTSN_CONFIG    MqttsnConfig  theMqttsnConfig
-#define NETWORK_CONFIG   UdpConfig theNetworkConfig
-#define NETCONF          UdpConfig
+#define NETWORK_CONFIG   UdpConfig  theNetworkConfig
 
 #define PUBLISH(...)     theClient->publish(__VA_ARGS__)
 #define SUBSCRIBE(...)   theClient->subscribe(__VA_ARGS__)
@@ -99,6 +99,16 @@ struct UdpConfig{
 #define END_OF_SUBSCRIBE_LIST {0,0,0}
 
 #define INDICATOR_ON(...)   theClient->indicator(__VA_ARGS__)
+#ifdef DEBUG_FUNC
+#define FUNC_ENTRY   stackTraceEntry( __FILE__, __func__, __LINE__);
+#define FUNC_EXIT    stackTraceExit( __FILE__, __func__, __LINE__);
+#define FUNC_EXIT_RC(x)    stackTraceExitRc( __FILE__, __func__, __LINE__, &x);
+#else
+#define FUNC_ENTRY
+#define FUNC_EXIT
+#define FUNC_EXIT_RC(x)
+#endif
+
 /*======================================
       MACROs for debugging
 ========================================*/
@@ -173,7 +183,8 @@ struct UdpConfig{
 #define MQTTSN_RC_REJECTED_INVALID_TOPIC_ID 0x02
 #define MQTTSN_RC_REJECTED_NOT_SUPPORTED    0x03
 
-#define MQTTSN_TOPICID_PREDEFINED_TIME      0x01
-#define MQTTSN_TOPICID_PREDEFINED_OTA       0x0f0f
+#define MQTTSN_TOPICID_PREDEFINED_OTA       0x0ff0
+#define MQTTSN_TOPICID_PREDEFINED_OTA_RESP  0x0ff1
+#define MQTTSN_TOPICID_PREDEFINED_OTA_RJCT  0x0ff2
 
 #endif /* MQTTSNCLIENTAPP_H_ */

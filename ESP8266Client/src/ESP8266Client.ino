@@ -3,33 +3,36 @@
  *      MQTT-SN Client Application
  *
  *===========================================*/
-#include <MqttsnClientApp.h>
-#include <MqttsnClient.h>
+#include "MqttsnClientApp.h"
+#include "MqttsnClient.h"
+#include "Payload.h"
+#include "Timer.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
-extern MqttsnClient* theClient;
 /*------------------------------------------------------
  *          Network parameters
  *------------------------------------------------------*/
 #include "NWconfig.h"
 
 /*------------------------------------------------------
- *             MQTT-SN parameters
+ *          MQTT-SN parameters
  *------------------------------------------------------*/
 MQTTSN_CONFIG = {
     900,            //KeepAlive (seconds)
     true,           //Clean session
-    false,          //EndDevice
-    "willTopic",    //WillTopic   or 0   DO NOT USE NULL STRING "" !
-    "willMessage"   //WillMessage or 0   DO NOT USE NULL STRING "" !
+    0 ,             //Sleep duration in msecs (not available)
+    "willTopic",    //WillTopic 
+    "willMessage",  //WillMessage 
+    0,              //WillQos
+    false           //WillRetain
 };
 
 /*------------------------------------------------------
  *             Define Topic
  *------------------------------------------------------*/
-const char* topic1 = "ty4tw@github/onoff/arduino";
-const char* topic2 = "ty4tw@github/onoff/linux";
+const char* topic3 = "ty4tw/iot-2/evt/status/fmt/json";
+const char* topic4 = "ty4tw/gpio01/on";
 
 /*------------------------------------------------------
  *             Tasks invoked by Timer
@@ -38,12 +41,10 @@ static bool onoffFlg = true;
 
 void task1(void)
 {
-  Serial.print("TASK1 invoked\n");
-  MQTTSNPayload* pl = new MQTTSNPayload(10);
-  onoffFlg = !onoffFlg;
-  pl->set_bool(onoffFlg);
-  theClient->publish(topic1,pl,1);
-  delete pl;
+ 	Serial.print("TASK1 invoked\n");
+ 	char payload[100];
+ 	int payloadlen = sprintf((char*)payload,"1234567890abcdefghijklmn");
+	PUBLISH(topic3,(uint8_t*)payload, payloadlen,1, false);
 }
 
 void task2(void)
@@ -53,8 +54,8 @@ void task2(void)
 
 /*---------------  List of task invoked by Timer ------------*/
 
-TASK_LIST = {  //e.g. TASK( const char* topic, executing duration in second),
-             TASK(task1,3),
+TASK_LIST = {  //e.g. TASK( const char* topic, executing duration in seconds),
+             TASK(task1,5),
              TASK(task2,10),
              END_OF_TASK_LIST
             };
@@ -66,28 +67,29 @@ TASK_LIST = {  //e.g. TASK( const char* topic, executing duration in second),
 int on_publish(uint8_t* pload, uint16_t ploadlen)
 {
     Serial.print("ON_PUBLISH invoked.  ");
-    MQTTSNPayload payload;
-    payload.getPayload(pload, ploadlen)
-    INDICATOR_ON(payload->get_bool(0));
+    pload[50] = 0;
+    Serial.printf("payload:%s<---\n", pload);
     return 0;
 }
 
 /*------------ Link Callback to Topic -------------*/
 
 SUBSCRIBE_LIST = {// e.g. SUB(topic, callback, QoS=0or1),
-                  //SUB(topic1, on_publish, 1),
+                  //SUB(topic3, on_publish, 0),
                   END_OF_SUBSCRIBE_LIST
                  };
 
 /*------------------------------------------------------
- *            Tasks invoked by INT0 interruption
+ *            Tasks invoked by GPIO interruption
  *------------------------------------------------------*/
-void interruptCallback(void)
+void interruptCallback(uint8_t gpioNo)
 {
-
+  Serial.printf("GPIO = %d \n", gpioNo);
+  string id = theClient->getClientId();
+  PUBLISH(topic4, (uint8_t*)id.c_str(), id.size(),1);
 }
 
-/*------------------------------------------------------ 
+/*------------------------------------------------------
  *            initialize() function
  *------------------------------------------------------*/
  void setup(void)

@@ -28,19 +28,24 @@
  *
  */
 
-#include <MqttsnClientApp.h>
-#include <MqttsnClient.h>
-#include <PublishManager.h>
-#include <GwProxy.h>
-#include <Timer.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "MqttsnClientApp.h"
+#include "MqttsnClient.h"
+#include "PublishManager.h"
+#include "GwProxy.h"
+#include "Timer.h"
+#include "Payload.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
 
 extern void setUint16(uint8_t* pos, uint16_t val);
 extern uint16_t getUint16(const uint8_t* pos);
+extern void stackTraceEntry(const char* fileName, const char* funcName, const int line);
+extern void stackTraceExit(const char* fileName, const char* funcName, const int line);
+extern void stackTraceExitRc(const char* fileName, const char* funcName, const int line, void* rc);
 extern MqttsnClient* theClient;
 extern bool theOTAflag;
 /*========================================
@@ -51,6 +56,7 @@ const char* NULLCHAR = "";
 PublishManager::PublishManager()
 {
 	_first = 0;
+	_last = 0;
 	_elmCnt = 0;
 	_publishedFlg = SAVE_TASK_INDEX;
 }
@@ -70,78 +76,80 @@ PublishManager::~PublishManager()
 	}
 }
 
-void PublishManager::publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain)
+void PublishManager::publish(const char* topicName, Payload* payload, uint8_t qos, bool retain)
 {
-	uint16_t msgId = 0;
-	if ( qos > 0 )
-	{
-		msgId = theClient->getGwProxy()->getNextMsgId();
-	}
-	PubElement* elm = add(topicName, 0, payload->getRowData(), payload->getLen(), qos, retain, msgId);
-	if (elm->status == TOPICID_IS_READY)
-	{
-		sendPublish(elm);
-	}
-	else
-	{
-		theClient->getGwProxy()->registerTopic((char*) topicName, 0);
-	}
+	publish(topicName, payload->getRowData(), payload->getLen(), qos, retain);
 }
+
 
 void PublishManager::publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
 {
+	uint8_t topicType = MQTTSN_TOPIC_TYPE_NORMAL;
+	if ( strlen(topicName) <= 2 )
+	{
+		topicType = MQTTSN_TOPIC_TYPE_SHORT;
+	}
+	publish(topicName, payload, len, qos, topicType, retain);
+}
+
+void PublishManager::publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, uint8_t topicType, bool retain)
+{
+	FUNC_ENTRY;
 	uint16_t msgId = 0;
 	if ( qos > 0 )
 	{
 		msgId = theClient->getGwProxy()->getNextMsgId();
 	}
-
-	PubElement* elm = add(topicName, 0, payload, len, qos, retain, msgId);
+	uint16_t topicId = theClient->getGwProxy()->getTopicTable()->getTopicId(topicName);
+	PubElement* elm = add(topicName, topicId, payload, len, qos, retain, msgId, topicType);
+	//D_MQTTLOG("sendPublish elm->status %d\n", elm->status);
 	if (elm->status == TOPICID_IS_READY)
 	{
 		sendPublish(elm);
 	}
 	else
 	{
-		theClient->getGwProxy()->registerTopic((char*) topicName, 0);
+		theClient->getGwProxy()->registerTopic((const char*) topicName, 0);
 	}
+exit:
+	FUNC_EXIT;
+	return;
 }
 
-void PublishManager::publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain)
+void PublishManager::publish(uint16_t topicId, Payload* payload, uint8_t qos, bool retain)
 {
-	uint16_t msgId = 0;
-	if ( qos > 0 )
-	{
-		msgId = theClient->getGwProxy()->getNextMsgId();
-	}
-
-	PubElement* elm = add(NULLCHAR, topicId, payload->getRowData(), payload->getLen(), qos, retain, msgId);
-	sendPublish(elm);
+	publish(topicId, payload->getRowData(), payload->getLen(), qos, retain);
 }
 
 void PublishManager::publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain)
 {
+	FUNC_ENTRY;
 	uint16_t msgId = 0;
 	if ( qos > 0 )
 	{
 		msgId = theClient->getGwProxy()->getNextMsgId();
 	}
-
-	PubElement* elm = add(NULLCHAR, topicId, payload, len, qos, retain, msgId);
+	PubElement* elm = add(NULLCHAR, topicId, payload, len, qos, retain, msgId, MQTTSN_TOPIC_TYPE_PREDEFINED);
 	sendPublish(elm);
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::sendPublish(PubElement* elm)
 {
+	FUNC_ENTRY;
+
+	uint8_t msg[MQTTSN_MAX_MSG_LENGTH + 1];
+	uint8_t org = 0;
+
 	if (elm == 0)
 	{
-		return;
+		goto exit;
 	}
 
 	theClient->getGwProxy()->connect();
 
-	uint8_t msg[MQTTSN_MAX_MSG_LENGTH + 1];
-	uint8_t org = 0;
 	if (elm->payloadlen > 128)
 	{
 		msg[0] = 0x01;
@@ -169,12 +177,18 @@ void PublishManager::sendPublish(PubElement* elm)
 	setUint16(msg + org + 5, elm->msgId);
 	memcpy(msg + org + 7, elm->payload, elm->payloadlen);
 
-	theClient->getGwProxy()->writeMsg(msg);
+	if ( theClient->getGwProxy()->writeMsg(msg) == 0 )
+	{
+		goto exit;
+	}
 	theClient->getGwProxy()->resetPingReqTimer();
+
+	D_MQTTLOG(" send %s msgId:%c%04x\n", "PUBLISH", msg[org + 2] & MQTTSN_FLAG_DUP ? '+' : ' ', elm->msgId);
+
 	if ((elm->flag & 0x60) == MQTTSN_FLAG_QOS_0)
 	{
 		remove(elm);  // PUBLISH Done
-		return;
+		goto exit;
 	}
 	else if ((elm->flag & 0x60) == MQTTSN_FLAG_QOS_1)
 	{
@@ -185,12 +199,17 @@ void PublishManager::sendPublish(PubElement* elm)
 		elm->status = WAIT_PUBREC;
 	}
 
-	elm->sendUTC = Timer::getUnixTime();
+	elm->sendUTC = time(NULL);
 	elm->retryCount--;
+
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::sendSuspend(const char* topicName, uint16_t topicId, uint8_t topicType)
 {
+	FUNC_ENTRY;
 	PubElement* elm = _first;
 	while (elm)
 	{
@@ -207,10 +226,14 @@ void PublishManager::sendSuspend(const char* topicName, uint16_t topicId, uint8_
 			elm = elm->next;
 		}
 	}
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::sendPubAck(uint16_t topicId, uint16_t msgId, uint8_t rc)
 {
+	FUNC_ENTRY;
 	uint8_t msg[7];
 	msg[0] = 7;
 	msg[1] = MQTTSN_TYPE_PUBACK;
@@ -218,15 +241,22 @@ void PublishManager::sendPubAck(uint16_t topicId, uint16_t msgId, uint8_t rc)
 	setUint16(msg + 4, msgId);
 	msg[6] = rc;
 	theClient->getGwProxy()->writeMsg(msg);
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::sendPubRel(PubElement* elm)
 {
+	FUNC_ENTRY
 	uint8_t msg[4];
 	msg[0] = 4;
 	msg[1] = MQTTSN_TYPE_PUBREL;
 	setUint16(msg + 2, elm->msgId);
 	theClient->getGwProxy()->writeMsg(msg);
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 bool PublishManager::isDone(void)
@@ -241,13 +271,16 @@ bool PublishManager::isMaxFlight(void)
 
 void PublishManager::responce(const uint8_t* msg, uint16_t msglen)
 {
+	FUNC_ENTRY;
 	if (msg[0] == MQTTSN_TYPE_PUBACK)
 	{
 		uint16_t msgId = getUint16(msg + 3);
 		PubElement* elm = getElement(msgId);
+
+		//D_MQTTLOG("PubElement elm %d\n", elm);
 		if (elm == 0)
 		{
-			return;
+			goto exit;;
 		}
 		if (msg[5] == MQTTSN_RC_ACCEPTED)
 		{
@@ -270,13 +303,13 @@ void PublishManager::responce(const uint8_t* msg, uint16_t msglen)
 		PubElement* elm = getElement(getUint16(msg + 1));
 		if (elm == 0)
 		{
-			return;
+			goto exit;;
 		}
 		if (elm->status == WAIT_PUBREC || elm->status == WAIT_PUBCOMP)
 		{
 			sendPubRel(elm);
 			elm->status = WAIT_PUBCOMP;
-			elm->sendUTC = Timer::getUnixTime();
+			elm->sendUTC = time(NULL);
 		}
 	}
 	else if (msg[0] == MQTTSN_TYPE_PUBCOMP)
@@ -284,17 +317,21 @@ void PublishManager::responce(const uint8_t* msg, uint16_t msglen)
 		PubElement* elm = getElement(getUint16(msg + 1));
 		if (elm == 0)
 		{
-			return;
+			goto exit;;
 		}
 		if (elm->status == WAIT_PUBCOMP)
 		{
 			remove(elm);  // PUBLISH Done
 		}
 	}
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::published(uint8_t* msg, uint16_t msglen)
 {
+	FUNC_ENTRY;
 	if (msg[1] & MQTTSN_FLAG_QOS_1)
 	{
 		sendPubAck(getUint16(msg + 2), getUint16(msg + 4), MQTTSN_RC_ACCEPTED);
@@ -304,7 +341,7 @@ void PublishManager::published(uint8_t* msg, uint16_t msglen)
 
 	if ( (msg[1] & 0x03) == MQTTSN_TOPIC_TYPE_PREDEFINED )
 	{
-		if (topicId == 0x0001)
+		if (topicId == MQTTSN_TOPICID_PREDEFINED_OTA)
 		{
 			theOTAflag = true;
 		}
@@ -315,6 +352,9 @@ void PublishManager::published(uint8_t* msg, uint16_t msglen)
 		theClient->getTopicTable()->execCallback(topicId, msg + 6, msglen - 6, msg[1] & 0x03);
 		_publishedFlg = SAVE_TASK_INDEX;
 	}
+exit:
+	FUNC_EXIT;
+	return;
 }
 
 void PublishManager::checkTimeout(void)
@@ -322,7 +362,7 @@ void PublishManager::checkTimeout(void)
 	PubElement* elm = _first;
 	while (elm)
 	{
-		if (elm->sendUTC > 0 && elm->sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime())
+		if (elm->sendUTC > 0 && elm->sendUTC + MQTTSN_TIME_RETRY < time(NULL))
 		{
 			if (elm->retryCount >= 0)
 			{
@@ -342,106 +382,126 @@ void PublishManager::checkTimeout(void)
 
 PubElement* PublishManager::getElement(uint16_t msgId)
 {
+	FUNC_ENTRY;
 	PubElement* elm = _first;
+	//D_MQTTLOG("msgID: %d first %d  last %d", msgId, _first, _last);
 	while (elm)
 	{
+		//D_MQTTLOG("mid: %d \n", elm->msgId);
 		if (elm->msgId == msgId)
 		{
-			return elm;
+			goto exit;
 		}
 		else
 		{
 			elm = elm->next;
 		}
 	}
-	return 0;
+exit:
+	FUNC_EXIT(elm);
+	return elm;
 }
 
 PubElement* PublishManager::getElement(const char* topicName)
 {
+	FUNC_ENTRY;
 	PubElement* elm = _first;
 	while (elm)
 	{
 		if (strcmp(elm->topicName, topicName) == 0)
 		{
-			return elm;
+			goto exit;
 		}
 		else
 		{
 			elm = elm->next;
 		}
 	}
-	return 0;
+exit:
+	FUNC_EXIT(elm);
+	return elm;
 }
 
 void PublishManager::remove(PubElement* elm)
 {
+	FUNC_ENTRY;
 	if (elm)
 	{
 		if (elm->prev == 0)
 		{
 			_first = elm->next;
-			if (elm->next != 0)
+			if (elm->next == 0)
+			{
+				_last = 0;
+			}
+			else
 			{
 				elm->next->prev = 0;
+				_last = elm->next;
 			}
 		}
 		else
 		{
+			if ( elm->next == 0 )
+			{
+				_last = elm->prev;
+			}
 			elm->prev->next = elm->next;
 		}
 		delElement(elm);
-		_elmCnt--;
 	}
+
+	//D_MQTTLOG("first %d  last %d\n", _first, _last);
+exit:
+	FUNC_EXIT;
 }
 
 void PublishManager::delElement(PubElement* elm)
 {
+	FUNC_ENTRY;
 	if (elm->taskIndex >= 0)
 	{
 		theClient->getTaskManager()->done(elm->taskIndex);
 	}
-	free(elm->payload);
+	_elmCnt--;
+	if ( elm->payload )
+	{
+		free(elm->payload);
+	}
 	free(elm);
+exit:
+	FUNC_EXIT;
+	return;
 }
 
-/*
- PubElement* PublishManager::add(const char* topicName, uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, uint8_t retain, uint16_t msgId){
- return add(topicName, topicId, payload->getRowData(), payload->getLen(), qos, retain, msgId);
- }*/
 
 PubElement* PublishManager::add(const char* topicName, uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos,
-		uint8_t retain, uint16_t msgId)
+		uint8_t retain, uint16_t msgId, uint8_t topicType)
 {
-	PubElement* last = _first;
-	PubElement* prev = _first;
+	FUNC_ENTRY;
+	PubElement* rc = 0;
 	PubElement* elm = (PubElement*) calloc(1, sizeof(PubElement));
 
 	if (elm == 0)
 	{
-		return 0;
+		rc = elm;
+		goto exit;
 	}
-	if (last == 0)
+	if (_last == 0)
 	{
 		_first = elm;
-	}
-
-	elm->topicName = topicName;
-
-	if (strlen(topicName) == 2)
-	{
-		topicId = 0;
-		elm->flag |= MQTTSN_TOPIC_TYPE_SHORT;
-	}
-	else if (strlen(topicName) > 2)
-	{
-		topicId = theClient->getTopicTable()->getTopicId((char*) topicName);
-		elm->flag |= MQTTSN_TOPIC_TYPE_NORMAL;
+		_last = elm;
 	}
 	else
 	{
-		elm->flag |= MQTTSN_TOPIC_TYPE_PREDEFINED;
+		elm->prev = _last;
+		_last->next = elm;
+		_last = elm;
 	}
+
+	elm->topicName = topicName;
+	elm->flag |= topicType;
+
 	if (qos == 0)
 	{
 		elm->flag |= MQTTSN_FLAG_QOS_0;
@@ -465,12 +525,6 @@ PubElement* PublishManager::add(const char* topicName, uint16_t topicId, uint8_t
 		elm->topicId = topicId;
 	}
 
-	elm->payload = (uint8_t*) malloc(len);
-	if (elm->payload == 0)
-	{
-		return 0;
-	}
-	memcpy(elm->payload, payload, len);
 	elm->payloadlen = len;
 	elm->msgId = msgId;
 	elm->retryCount = MQTTSN_RETRY_COUNT;
@@ -486,21 +540,19 @@ PubElement* PublishManager::add(const char* topicName, uint16_t topicId, uint8_t
 		theClient->getTaskManager()->suspend(elm->taskIndex);
 	}
 
-	while (last)
+	elm->payload = (uint8_t*) malloc(len);
+	if (elm->payload == 0)
 	{
-		prev = last;
-		if (prev->next != 0)
-		{
-			last = prev->next;
-		}
-		else
-		{
-			prev->next = elm;
-			elm->prev = prev;
-			elm->next = 0;
-			last = 0;
-		}
+		delElement(elm);
+		rc = 0;
+		goto exit;
 	}
+	memcpy(elm->payload, payload, len);
+
 	++_elmCnt;
-	return elm;
+	rc = elm;
+
+exit:
+	FUNC_EXIT_RC(rc);
+	return rc;
 }

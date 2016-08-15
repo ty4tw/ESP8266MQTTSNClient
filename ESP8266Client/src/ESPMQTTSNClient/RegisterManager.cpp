@@ -41,182 +41,144 @@ using namespace std;
 using namespace ESP8266MQTTSNClient;
 
 extern void setUint16(uint8_t* pos, uint16_t val);
+extern void stackTraceEntry(const char* fileName, const char* funcName, const int line);
+extern void stackTraceExit(const char* fileName, const char* funcName, const int line);
+extern void stackTraceExitRc(const char* fileName, const char* funcName, const int line, void* rc);
 extern MqttsnClient* theClient;
 /*=====================================
-        Class RegisterQue
+ Class RegisterQue
  =====================================*/
-RegisterManager::RegisterManager(){
-	_first  = 0;
+RegisterManager::RegisterManager()
+{
+	_first = 0;
+	_last = 0;
 }
 
-RegisterManager::~RegisterManager(){
+RegisterManager::~RegisterManager()
+{
 	RegQueElement* elm = _first;
 	RegQueElement* sav = 0;
-	while (elm){
+	while (elm)
+	{
 		sav = elm->next;
-		if (elm != 0){
+		if (elm != 0)
+		{
 			free(elm);
 		}
 		elm = sav;
 	}
 }
 
-RegQueElement* RegisterManager::add(const char* topic, uint16_t msgId){
-	RegQueElement* last = _first;
-	RegQueElement* prev = _first;
-	RegQueElement* elm = (RegQueElement*) calloc(1,sizeof(RegQueElement));
-
-	if (elm == 0){
-		return 0;
-	}
-	if (last == 0){
-		_first = elm;
-	}
-	elm->topicName = topic;
-	elm->msgId = msgId;
-	elm->retryCount = MQTTSN_RETRY_COUNT;
-	elm->sendUTC = 0;
-
-	while(last){
-		prev = last;
-		if (prev->next != 0){
-			last = prev->next;
-		}else{
-			prev->next = elm;
-			elm->prev = prev;
-			elm->next = 0;
-			last = 0;
-		}
-	}
-	return elm;
-}
-
-void RegisterManager::remove(RegQueElement* elm){
-    if (elm){
-    	if (elm->prev == 0){
-    		_first = elm->next;
-    		if (elm->next != 0){
-    			elm->next->prev = 0;
-    		}
-    		free(elm);
-    	}else{
-    		elm->prev->next = elm->next;
-    		free(elm);
-    	}
-    }
-}
-
-bool RegisterManager::isDone(void){
+bool RegisterManager::isDone(void)
+{
 	return _first == 0;
 }
 
-const char* RegisterManager::getTopic(uint16_t msgId){
+const char* RegisterManager::getTopic(uint16_t msgId)
+{
+	FUNC_ENTRY;
+	const char* rc = 0;
 	RegQueElement* elm = _first;
-	while(elm){
-		if (elm->msgId == msgId){
-			return elm->topicName;
-		}else{
+	while (elm)
+	{
+		if (elm->msgId == msgId)
+		{
+			rc = elm->topicName;
+			goto exit;;
+		}
+		else
+		{
 			elm = elm->next;
 		}
 	}
-	return 0;
+	exit: FUNC_EXIT_RC(rc);
+	return rc;
 }
 
-void RegisterManager::send(RegQueElement* elm){
-	uint8_t msg[MQTTSN_MAX_MSG_LENGTH + 1];
-	msg[0] = 6 + strlen(elm->topicName);
-	msg[1] = MQTTSN_TYPE_REGISTER;
-	msg[2] = msg[3] = 0;
-	setUint16(msg + 4, elm->msgId);
-	strcpy((char*)msg + 6, elm->topicName);
-	theClient->getGwProxy()->connect();
-	theClient->getGwProxy()->writeMsg(msg);
-	elm->sendUTC = Timer::getUnixTime();
-    elm->retryCount--;
-}
-
-
-RegQueElement* RegisterManager::getElement(const char* topicName){
-	RegQueElement* elm = _first;
-	while(elm){
-		if (strcmp(elm->topicName, topicName)){
-			elm = elm->next;
-		}else{
-			return elm;
-		}
-	}
-	return 0;
-}
-
-RegQueElement* RegisterManager::getElement(uint16_t msgId){
-	RegQueElement* elm = _first;
-	while(elm){
-		if (elm->msgId == msgId){
-			return elm;
-		}else{
-			elm = elm->next;
-		}
-	}
-	return 0;
-}
-
-
-void RegisterManager::registerTopic(char* topicName){
+void RegisterManager::registerTopic(const char* topicName)
+{
+	FUNC_ENTRY;
 	RegQueElement* elm = getElement(topicName);
-	if (elm == 0){
+	if (elm == 0)
+	{
 		uint16_t msgId = theClient->getGwProxy()->getNextMsgId();
 		elm = add(topicName, msgId);
 		send(elm);
-	}
+	} FUNC_EXIT;
 }
 
-void RegisterManager::responceRegAck(uint16_t msgId, uint16_t topicId){
+void RegisterManager::responceRegAck(uint16_t msgId, uint16_t topicId)
+{
+	FUNC_ENTRY;
 	const char* topicName = getTopic(msgId);
-	if (topicName){
-		uint8_t topicType = strlen((char*)topicName) > 2 ? MQTTSN_TOPIC_TYPE_NORMAL : MQTTSN_TOPIC_TYPE_SHORT;
-		theClient->getGwProxy()->getTopicTable()->setTopicId((char*)topicName, topicId, topicType);  // Add Topic to TopicTable
+	if (topicName)
+	{
+		uint8_t topicType = strlen((const char*) topicName) > 2 ? MQTTSN_TOPIC_TYPE_NORMAL : MQTTSN_TOPIC_TYPE_SHORT;
+		theClient->getGwProxy()->getTopicTable()->setTopicId((const char*) topicName, topicId, topicType); // Add Topic to TopicTable
 		RegQueElement* elm = getElement(msgId);
 		remove(elm);
-		theClient->getPublishManager()->sendSuspend((char*)topicName, topicId, topicType );
+		D_MQTTLOG("\n");  // gwProxy. getMessage() needs this line.
+		theClient->getPublishManager()->sendSuspend((const char*) topicName, topicId, topicType);
 	}
+	FUNC_EXIT;
 }
 
-void RegisterManager::responceRegister(uint8_t* msg, uint16_t msglen){
+void RegisterManager::responceRegister(uint8_t* msg, uint16_t msglen)
+{
+	FUNC_ENTRY;
 	// *msg is terminated with 0x00 by Network::getMessage()
 	uint8_t regack[7];
 	regack[0] = 7;
 	regack[1] = MQTTSN_TYPE_REGACK;
 	memcpy(regack + 2, msg + 2, 4);
 
-	Topic* tp = theClient->getGwProxy()->getTopicTable()->match((char*)msg + 5);
-	if (tp){
+	Topic* tp = theClient->getGwProxy()->getTopicTable()->match((const char*) msg + 5);
+	if (tp)
+	{
 		TopicCallback callback = tp->getCallback();
-		void* topicName = calloc(strlen((char*)msg + 5) + 1, sizeof(char));
-		theClient->getGwProxy()->getTopicTable()->add((char*)topicName, 0, MQTTSN_TOPIC_TYPE_NORMAL, callback, 1);
+		void* topicName = calloc(strlen((char*) msg + 5) + 1, sizeof(char));
+		theClient->getGwProxy()->getTopicTable()->add((const char*) topicName, 0, MQTTSN_TOPIC_TYPE_NORMAL, callback,
+				1);
 		regack[6] = MQTTSN_RC_ACCEPTED;
-	}else{
+	}
+	else
+	{
 		regack[6] = MQTTSN_RC_REJECTED_INVALID_TOPIC_ID;
 	}
 	theClient->getGwProxy()->writeMsg(regack);
+	FUNC_EXIT;
 }
 
-uint8_t  RegisterManager::checkTimeout(void){
+uint8_t RegisterManager::checkTimeout(void)
+{
+	RegQueElement* sav = 0;
 	RegQueElement* elm = _first;
-	RegQueElement* sav;
-	while (elm){
-		if ( elm->sendUTC + MQTTSN_TIME_RETRY < Timer::getUnixTime()){
-			if (elm->retryCount >= 0){
+	while (elm)
+	{
+		if (elm->sendUTC + MQTTSN_TIME_RETRY < time(NULL))
+		{
+			if (elm->retryCount >= 0)
+			{
 				send(elm);
-			}else{
-				if (elm->next){
+				D_MQTTLOG("...Timeout retry\r\n");
+			}
+			else
+			{
+				if (elm->next)
+				{
 					sav = elm->prev;
 					remove(elm);
-					if(sav){
+					if (sav)
+					{
 						elm = sav;
-					}else{
+					}
+					else
+					{
 						break;
 					}
-				}else{
+				}
+				else
+				{
 					remove(elm);
 					break;
 				}
@@ -226,3 +188,118 @@ uint8_t  RegisterManager::checkTimeout(void){
 	}
 	return 0;
 }
+
+void RegisterManager::send(RegQueElement* elm)
+{
+	FUNC_ENTRY;
+	uint8_t msg[MQTTSN_MAX_MSG_LENGTH + 1];
+	msg[0] = 6 + strlen(elm->topicName);
+	msg[1] = MQTTSN_TYPE_REGISTER;
+	msg[2] = msg[3] = 0;
+	setUint16(msg + 4, elm->msgId);
+	strcpy((char*) msg + 6, elm->topicName);
+	theClient->getGwProxy()->connect();
+	theClient->getGwProxy()->writeMsg(msg);
+	elm->sendUTC = time(NULL);
+	elm->retryCount--;
+	FUNC_EXIT;
+}
+
+RegQueElement* RegisterManager::add(const char* topic, uint16_t msgId)
+{
+	FUNC_ENTRY;
+	RegQueElement* elm = (RegQueElement*) calloc(1, sizeof(RegQueElement));
+
+	if (elm)
+	{
+		if (_last == 0)
+		{
+			_first = elm;
+			_last = elm;
+		}
+		else
+		{
+			elm->prev = _last;
+			_last->next = elm;
+			_last = elm;
+		}
+		elm->topicName = topic;
+		elm->msgId = msgId;
+		elm->retryCount = MQTTSN_RETRY_COUNT;
+		elm->sendUTC = 0;
+	}
+	exit: FUNC_EXIT_RC(elm);
+	return elm;
+}
+
+void RegisterManager::remove(RegQueElement* elm)
+{
+	FUNC_ENTRY;
+	if (elm)
+	{
+		if (elm->prev == 0)
+		{
+			_first = elm->next;
+			if (elm->next == 0)
+			{
+				_last = 0;
+			}
+			else
+			{
+				elm->next->prev = 0;
+				_last = elm->next;
+			}
+		}
+		else
+		{
+			if ( elm->next == 0 )
+			{
+				_last = elm->prev;
+			}
+			elm->prev->next = elm->next;
+		}
+		free(elm);
+	}
+exit:
+	FUNC_EXIT;
+	return;
+}
+
+RegQueElement* RegisterManager::getElement(const char* topicName)
+{
+FUNC_ENTRY;
+RegQueElement* elm = _first;
+while (elm)
+{
+	if (strcmp(elm->topicName, topicName))
+	{
+		elm = elm->next;
+	}
+	else
+	{
+		return elm;
+	}
+}
+exit: FUNC_EXIT_RC(elm)
+return elm;
+}
+
+RegQueElement* RegisterManager::getElement(uint16_t msgId)
+{
+FUNC_ENTRY;
+RegQueElement* elm = _first;
+while (elm)
+{
+	if (elm->msgId == msgId)
+	{
+		goto exit;
+	}
+	else
+	{
+		elm = elm->next;
+	}
+}
+exit: FUNC_EXIT_RC(elm);
+return elm;
+}
+

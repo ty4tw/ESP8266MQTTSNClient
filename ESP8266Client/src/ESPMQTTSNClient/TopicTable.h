@@ -31,9 +31,10 @@
 #ifndef TOPICTABLE_H_
 #define TOPICTABLE_H_
 
-#include <MqttsnClientApp.h>
+#include <Payload.h>
 #include <stdio.h>
-#include <MQTTSNPayload.h>
+
+#include "MqttsnClientApp.h"
 
 #define MQTTSN_TOPIC_MULTI_WILDCARD   1
 #define MQTTSN_TOPIC_SINGLE_WILDCARD  2
@@ -42,7 +43,7 @@ namespace ESP8266MQTTSNClient {
 /*=====================================
         Class Topic
  ======================================*/
-typedef int (*TopicCallback)(uint8_t* payload, uint16_t payloadlen);
+typedef int (*TopicCallback)(uint8_t*, uint16_t);
 
 class Topic {
 	friend class TopicTable;
@@ -51,7 +52,7 @@ public:
     ~Topic();
     int      execCallback(uint8_t* payload, uint16_t payloadlen);
     uint8_t  hasWildCard(uint8_t* pos);
-    bool     isMatch(char* topic);
+    bool     isMatch(const char* topic);
     TopicCallback getCallback(void);
 private:
     uint16_t  _topicId;
@@ -59,6 +60,7 @@ private:
     char*     _topicStr;
     TopicCallback  _callback;
     uint8_t  _malocFlg;
+    Topic*    _prev;
     Topic*    _next;
 };
 
@@ -69,23 +71,25 @@ class TopicTable {
 public:
 	TopicTable();
       ~TopicTable();
-      uint16_t getTopicId(char* topic);
-      char*    getTopicName(Topic* topic);
-      Topic*   getTopic(char* topic);
+      uint16_t getTopicId(const char* topic);
+      const char* getTopicName(Topic* topic);
+      Topic*   getTopic(const char* topic);
       Topic*   getTopic(uint16_t topicId, uint8_t topicType = MQTTSN_TOPIC_TYPE_NORMAL);
-      void     setTopicId(char* topic, uint16_t id, uint8_t topicType);
-      bool     setCallback(char* topic, TopicCallback callback);
+      void     setTopicId(const char* topic, uint16_t id, uint8_t topicType);
+      bool     setCallback(const char* topic, TopicCallback callback);
       bool     setCallback(uint16_t topicId, uint8_t type, TopicCallback callback);
       int      execCallback(uint16_t  topicId, uint8_t* payload, uint16_t payloadlen, uint8_t topicType = MQTTSN_TOPIC_TYPE_NORMAL);
-      Topic*   add(char* topic, uint16_t id = 0, uint8_t type = MQTTSN_TOPIC_TYPE_NORMAL, TopicCallback callback = 0, uint8_t alocFlg = 0);
-      Topic*   match(char* topic);
+      Topic*   add(const char* topic, uint16_t id = 0, uint8_t type = MQTTSN_TOPIC_TYPE_NORMAL, TopicCallback callback = 0, uint8_t alocFlg = 0);
+      Topic*   match(const char* topic);
       void     clearTopic(void);
+      void     remove(uint16_t topicId);
 
 private:
     Topic*  _first;
+    Topic*  _last;
 
 };
 
-};
+} /* end of namespace */
 
 #endif /* TOPICTABLE_H_ */

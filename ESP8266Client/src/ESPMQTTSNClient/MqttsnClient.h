@@ -31,15 +31,17 @@
 #ifndef MQTTSNCLIENT_H_
 #define MQTTSNCLIENT_H_
 
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
 #include "MqttsnClientApp.h"
 #include "Timer.h"
 #include "TaskManager.h"
 #include "PublishManager.h"
 #include "SubscribeManager.h"
 #include "GwProxy.h"
-#include <stdio.h>
-#include <string.h>
-#include "MQTTSNPayload.h"
+#include "Payload.h"
 
 using namespace std;
 
@@ -52,9 +54,7 @@ struct OnPublishList
 	uint8_t qos;
 };
 
-#define GETUTC() Timer::getUnixTime()
-//int setUTC(MQTTSNPayload*);
-
+#define GETNOW() Timer::getNow()
 /*========================================
        Class MqttsnClient
  =======================================*/
@@ -63,9 +63,9 @@ public:
     MqttsnClient();
     ~MqttsnClient();
     void onConnect(void);
-    void publish(const char* topicName, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(const char* topicName, Payload* payload, uint8_t qos, bool retain = false);
     void publish(const char* topicName, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
-    void publish(uint16_t topicId, MQTTSNPayload* payload, uint8_t qos, bool retain = false);
+    void publish(uint16_t topicId, Payload* payload, uint8_t qos, bool retain = false);
     void publish(uint16_t topicId, uint8_t* payload, uint16_t len, uint8_t qos, bool retain = false);
     void subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos);
     void subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType);
@@ -73,11 +73,12 @@ public:
     void disconnect(uint16_t sleepInSecs);
     void initialize(NETCONF netconf, MqttsnConfig mqconf);
     void run(void);
-    int  sleep(void);
     void networkClose(void);
-    void registerInt0Callback(void (*callback)());
+    void registerInt0Callback(void (*callback)(uint8_t gpioNo));
+    void checkGPIOInput(void);
     void addTask(void);
-    void setSleepMode(bool mode);
+    void setSleepDuration(uint32_t duration);
+    void sleep(void);
 	const char* getClientId(void);
     GwProxy*          getGwProxy(void);
     PublishManager*   getPublishManager(void);
@@ -87,14 +88,15 @@ public:
     TopicTable*       getTopicTable(void);
     void              indicator(bool onoff);
 private:
+    uint8_t          readDigitalGPIO(uint8_t pinNo);
     TaskManager      _taskMgr;
     PublishManager   _pubMgr;
     SubscribeManager _subMgr;
     GwProxy          _gwProxy;
-    bool             _sleepMode;
-    void            (*_intCallback)(void);
+    uint32_t         _sleepDuration;
+    uint8_t          _gpio0pre;
+    void            (*_intCallback)(uint8_t gpioNo);
 };
-
 
 } /* ESP8266MQTTSNClient */
 #endif /* MQTTSNCLIENT_H_ */

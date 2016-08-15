@@ -47,21 +47,20 @@ public:
     bool isTimeUp(uint32_t msec);
     bool isTimeUp(void);
     void stop();
-    static uint32_t getUnixTime(void);
 	static void setStopTimeDuration(uint32_t msec);
-    static void initialize(uint32_t timezone, uint32_t daylightOffset_sec, const char* server1, const char* server2, const char* server3, uint32_t interval);
+    static void initialize(int32 timezone, uint32_t daylightOffset_sec, const char* server1,
+    		               const char* server2, const char* server3, uint32_t interval);
     static bool update(void);
-
+    static const char* getNow(void);;
 private:
     uint32_t _startTime;
     uint32_t _currentTime;
     uint32_t _millis;
-	static uint32_t _unixTime;
-	static uint32_t _epochTime;
+	static time_t _unixTime;
+	static time_t _epochTime;
 	static uint32_t _timerStopTimeAccum;
 	static uint32_t _updateInterval;
 	static uint32_t _init;
-
 };
 
 }

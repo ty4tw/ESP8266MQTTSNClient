@@ -31,13 +31,13 @@
 #ifndef SUBSCRIBEMANAGER_H_
 #define SUBSCRIBEMANAGER_H_
 
-#include <MqttsnClientApp.h>
-#include <Timer.h>
-#include <RegisterManager.h>
-#include <TopicTable.h>
-
 #include <stdio.h>
 #include <string.h>
+
+#include "MqttsnClientApp.h"
+#include "RegisterManager.h"
+#include "Timer.h"
+#include "TopicTable.h"
 
 using namespace std;
 
@@ -48,13 +48,16 @@ typedef struct SubElement{
     const char* topicName;
     uint16_t  msgId;
     uint32_t  sendUTC;
-    SubElement* prev;
-    SubElement* next;
     uint16_t  topicId;
-    int       retryCount;
     uint8_t   msgType;
     uint8_t   topicType;
     uint8_t   qos;
+
+    int       retryCount;
+    uint8_t   done;
+
+    SubElement* prev;
+    SubElement* next;
 } SubElement;
 
 /*========================================
@@ -64,6 +67,7 @@ class SubscribeManager{
 public:
     SubscribeManager();
     ~SubscribeManager();
+    void onConnect(void);
     void subscribe(const char* topicName, TopicCallback onPublish, uint8_t qos);
     void subscribe(uint16_t topicId, TopicCallback onPublish, uint8_t qos, uint8_t topicType);
     void unsubscribe(const char* topicName);
@@ -72,14 +76,16 @@ public:
     void checkTimeout(void);
     bool isDone(void);
 private:
+    void send(SubElement* elm);
+    SubElement* getFirstElement(void);
     SubElement* getElement(uint16_t msgId);
     SubElement* getElement(uint16_t topicId, uint8_t topicType);
-    SubElement* getElement(const char* topicName);
-	SubElement* add(uint8_t msgType, const char* topicName, uint16_t topicId, uint8_t topicType, uint8_t qos, TopicCallback callback, uint16_t msgId);
+    SubElement* getElement(const char* topicName, uint8_t msgType);
+	SubElement* add(uint8_t msgType, const char* topicName, uint16_t topicId, uint8_t topicType, uint8_t qos, TopicCallback callback);
 	void remove(SubElement* elm);
-	void send(SubElement* elm);
 	SubElement* _first;
+	SubElement* _last;
 };
  
-} /* ESP8266MQTTSNClient */
+} /* end of namespace */
 #endif /* SUBSCRIBEMANAGER_H_ */

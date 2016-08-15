@@ -42,8 +42,8 @@ using namespace ESP8266MQTTSNClient;
 /*=====================================
         Class Timer
  =====================================*/
-uint32_t Timer::_unixTime = 0;
-uint32_t Timer::_epochTime = 0;
+time_t Timer::_unixTime = 0;
+time_t Timer::_epochTime = 0;
 uint32_t Timer::_timerStopTimeAccum = 0;
 uint32_t Timer::_updateInterval = 0;
 uint32_t Timer::_init = 0;
@@ -81,21 +81,13 @@ void Timer::stop(){
     _currentTime = 0;
 }
 
-uint32_t Timer::getUnixTime(){
-    uint32_t tm = _timerStopTimeAccum + millis();
-    if (_epochTime > tm ){
-        return _unixTime + (uint32_t)((0xffffffff - tm - _epochTime) / 1000);
-    }else{
-        return _unixTime + (uint32_t)((tm - _epochTime) / 1000);
-    }
-}
-
 void Timer::setStopTimeDuration(uint32_t msec){
 	_timerStopTimeAccum += msec;
 }
 
 
-void Timer::initialize(uint32_t timezone, uint32_t daylightOffset_sec, const char* server1, const char* server2, const char* server3, uint32_t interval)
+void Timer::initialize(int32 timezone, uint32_t daylightOffset_sec, const char* server1,
+		const char* server2, const char* server3, uint32_t interval)
 {
 	configTime(timezone * 3600, daylightOffset_sec, server1, server2, server3);
 	_updateInterval = interval * 1000;
@@ -121,7 +113,7 @@ bool Timer::update(void)
 		do
 		{
 			delay(10);
-			time(&tm);
+			tm = time(NULL);
 			if ( timeout > 100 )
 			{
 				return false;
@@ -129,7 +121,7 @@ bool Timer::update(void)
 			timeout++;
 		}
 		while ( tm == 0 );
-		_unixTime = (uint32_t)tm;
+		_unixTime = tm;
 		_epochTime = millis();
 		_timerStopTimeAccum = 0;
 		_init = 1;
@@ -137,4 +129,12 @@ bool Timer::update(void)
 	return true;
 }
 
+const char* Timer::getNow(void)
+{
+	struct tm* time_inf;
+	time_t timep;
+	timep = time(NULL);
+	time_inf = localtime(&timep);
+	return asctime(time_inf);
+}
 

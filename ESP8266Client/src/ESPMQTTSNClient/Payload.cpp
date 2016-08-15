@@ -1,40 +1,31 @@
-/*
- * MqttsnClient.cpp.cpp
- *                      The BSD License
+/**************************************************************************************
+ * Copyright (c) 2016, Tomoaki Yamaguchi
  *
- *           Copyright (c) 2015, tomoaki@tomy-tech.com
- *                    All rights reserved.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * The Eclipse Public License is available at
+ *    http://www.eclipse.org/legal/epl-v10.html
+ * and the Eclipse Distribution License is available at
+ *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *   and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
- * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
- * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- * THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
+ * Contributors:
+ *    Tomoaki Yamaguchi - initial API and implementation and/or initial documentation
+ **************************************************************************************/
 
-#include <MqttsnClientApp.h>
-#include <MQTTSNPayload.h>
+#include <sys/stat.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+
+#include "MqttsnClientApp.h"
+#include "Payload.h"
 
 using namespace std;
 using namespace ESP8266MQTTSNClient;
+
 
 extern uint16_t getUint16(const uint8_t* pos);
 extern uint32_t getUint32(const uint8_t* pos);
@@ -45,53 +36,53 @@ extern void setUint32(uint8_t* pos, uint32_t val);
 extern void setFloat32(uint8_t* pos, float val);
 
 /*=====================================
-        Class MQTTSNPayload
+        Class Payload
   =====================================*/
-MQTTSNPayload::MQTTSNPayload(){
+Payload::Payload(){
 	_buff = _pos = 0;
 	_len = 0;
 	_elmCnt = 0;
 	_memDlt = 0;
 }
 
-MQTTSNPayload::MQTTSNPayload(uint16_t len){
+Payload::Payload(uint16_t len){
 	_buff = (uint8_t*)calloc(len, sizeof(uint8_t));
-	if(_buff == 0){
-		// ToDo
-	}
 	_pos = _buff;
 	_elmCnt = 0;
 	_len = len;
 	_memDlt = 1;
+	if(_buff == 0){
+		_memDlt = 0;
+	}
 }
 
-MQTTSNPayload::~MQTTSNPayload(){
+Payload::~Payload(){
 	if(_memDlt){
 		free(_buff);
 	}
 }
 
-void MQTTSNPayload::init(){
+void Payload::init(){
 	_pos = _buff;
 	_elmCnt = 0;
 }
 
-uint16_t MQTTSNPayload::getAvailableLength(){
+uint16_t Payload::getAvailableLength(){
 	return _len - (_pos - _buff);
 }
 
-uint16_t MQTTSNPayload::getLen(){
+uint16_t Payload::getLen(){
 	return _pos - _buff;
 }
 
-uint8_t* MQTTSNPayload::getRowData(){
+uint8_t* Payload::getRowData(){
 	return _buff;
 }
 
 /*======================
  *     setter
  ======================*/
-int8_t MQTTSNPayload::set_uint32(uint32_t val){
+int8_t Payload::set_uint32(uint32_t val){
 	if(getAvailableLength() < 6){
 		return -1;
 	}
@@ -113,7 +104,7 @@ int8_t MQTTSNPayload::set_uint32(uint32_t val){
 	return 0;
 }
 
-int8_t MQTTSNPayload::set_int32(int32_t val){
+int8_t Payload::set_int32(int32_t val){
 	if(getAvailableLength() < 6){
 			return -1;
 	}
@@ -137,7 +128,7 @@ int8_t MQTTSNPayload::set_int32(int32_t val){
 	return 0;
 }
 
-int8_t MQTTSNPayload::set_float(float val){
+int8_t Payload::set_float(float val){
 	if(getAvailableLength() < 6){
 			return -1;
 	}
@@ -148,11 +139,11 @@ int8_t MQTTSNPayload::set_float(float val){
 	return 0;
 }
 
-int8_t MQTTSNPayload::set_str(char* val){
+int8_t Payload::set_str(char* val){
 	return set_str((const char*) val);
 }
 
-int8_t MQTTSNPayload::set_str(const char* val){
+int8_t Payload::set_str(const char* val){
 	if(getAvailableLength() < strlen(val) + 3){
 		return -1;
 	}else if(strlen(val) < 32){
@@ -170,7 +161,7 @@ int8_t MQTTSNPayload::set_str(const char* val){
 	return 0;
 }
 
-int8_t MQTTSNPayload::set_array(uint8_t val){
+int8_t Payload::set_array(uint8_t val){
 	if(getAvailableLength() < (uint16_t)val+ 1){
 		return -1;
 	}
@@ -185,7 +176,7 @@ int8_t MQTTSNPayload::set_array(uint8_t val){
 	return 0;
 }
 
-int8_t MQTTSNPayload::set_bool(bool val){
+int8_t Payload::set_bool(bool val){
 	if (getAvailableLength() < 1){
 			return -1;
 	}
@@ -200,7 +191,7 @@ int8_t MQTTSNPayload::set_bool(bool val){
 /*======================
  *     getter
  ======================*/
-uint8_t MQTTSNPayload::getArray(uint8_t index){
+uint8_t Payload::getArray(uint8_t index){
 	uint8_t rc = 0;
 	uint8_t* val = getBufferPos(index);
 	if(val != 0){
@@ -213,7 +204,7 @@ uint8_t MQTTSNPayload::getArray(uint8_t index){
 	return rc;
 }
 
-bool MQTTSNPayload::get_bool(uint8_t index){
+bool Payload::get_bool(uint8_t index){
 	uint8_t* val = getBufferPos(index);
 	if (*val == MSGPACK_FALSE){
 		return false;
@@ -222,7 +213,7 @@ bool MQTTSNPayload::get_bool(uint8_t index){
 	}
 }
 
-uint32_t MQTTSNPayload::get_uint32(uint8_t index){
+uint32_t Payload::get_uint32(uint8_t index){
 	uint32_t rc = 0;
 	uint8_t* val = getBufferPos(index);
 	if(val != 0){
@@ -239,7 +230,7 @@ uint32_t MQTTSNPayload::get_uint32(uint8_t index){
 	return rc;
 }
 
-int32_t MQTTSNPayload::get_int32(uint8_t index){
+int32_t Payload::get_int32(uint8_t index){
 	int32_t rc = 0;
 	uint8_t* val = getBufferPos(index);
 	if(val != 0){
@@ -264,7 +255,7 @@ int32_t MQTTSNPayload::get_int32(uint8_t index){
 	return rc;
 }
 
-float MQTTSNPayload::get_float(uint8_t index){
+float Payload::get_float(uint8_t index){
 	uint8_t* val = getBufferPos(index);
 	if(val != 0){
 		if(*val == MSGPACK_FLOAT32){
@@ -274,7 +265,7 @@ float MQTTSNPayload::get_float(uint8_t index){
 	return 0;
 }
 
-const char* MQTTSNPayload::get_str(uint8_t index, uint16_t* len){
+const char* Payload::get_str(uint8_t index, uint16_t* len){
 	uint8_t* val = getBufferPos(index);
 	if(val != 0){
 		if(*val == MSGPACK_STR16){
@@ -283,8 +274,8 @@ const char* MQTTSNPayload::get_str(uint8_t index, uint16_t* len){
 		}else if(*val == MSGPACK_STR8){
 			*len = *(val + 1);
 			return (const char*)(val + 2);
-		}else if(*val & MSGPACK_FIXSTR){
-			*len = *val & (~MSGPACK_FIXSTR);
+		}else if( (*val & 0xf0) == MSGPACK_FIXSTR ){
+			*len = *val & 0x0f;
 			return (const char*)(val + 1);
 		}
 	}
@@ -294,7 +285,7 @@ const char* MQTTSNPayload::get_str(uint8_t index, uint16_t* len){
 }
 
 
-uint8_t* MQTTSNPayload::getBufferPos(uint8_t index){
+uint8_t* Payload::getBufferPos(uint8_t index){
 	uint8_t* bpos = 0;
 	uint8_t* pos = _buff;
 
@@ -327,11 +318,11 @@ uint8_t* MQTTSNPayload::getBufferPos(uint8_t index){
 			break;
 		default:
 			if((*pos < MSGPACK_POSINT) ||
-				((*pos & MSGPACK_NEGINT) == MSGPACK_NEGINT) ||
-				((*pos & MSGPACK_ARRAY15) == MSGPACK_ARRAY15)) {
+				((*pos & 0xf0) == MSGPACK_NEGINT) ||
+				((*pos & 0xf0) == MSGPACK_ARRAY15)) {
 				pos++;
-			}else if((*pos & MSGPACK_FIXSTR) == MSGPACK_FIXSTR){
-				pos += *pos & (~MSGPACK_FIXSTR);
+			}else if((*pos & 0xf0) == MSGPACK_FIXSTR){
+				pos += (*pos & 0x0f) + 1;
 			}
 		}
 		/*
@@ -343,7 +334,7 @@ uint8_t* MQTTSNPayload::getBufferPos(uint8_t index){
 	return bpos;
 }
 
-void MQTTSNPayload::getPayload(uint8_t* payload, uint16_t payloadLen){
+void Payload::setRowData(uint8_t* payload, uint16_t payloadLen){
     if(_memDlt){
 			free(_buff);
 			_memDlt = 0;

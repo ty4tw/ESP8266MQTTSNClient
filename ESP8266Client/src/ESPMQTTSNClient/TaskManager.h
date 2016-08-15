@@ -31,10 +31,11 @@
 #ifndef TASKMANAGER_H_
 #define TASKMANAGER_H_
 
-#include <MqttsnClientApp.h>
-#include <Timer.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "MqttsnClientApp.h"
+#include "Timer.h"
 
 using namespace std;
 
@@ -66,6 +67,6 @@ private:
 
 };
 
-} /* ESP8266client */
+} /* end of namespace */
 #endif /* TASKMANAGER_H_ */
 
