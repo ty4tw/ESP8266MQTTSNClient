@@ -81,6 +81,11 @@ void GwProxy::initialize(NETCONF netconf, MqttsnConfig mqconf){
 	sprintf(_clientId,"%s-%06x",netconf.clientId, ESP.getChipId());
 }
 
+void GwProxy::networkClose(void)
+{
+	_network.close();
+}
+
 void GwProxy::connect(){
 	char* pos;
 

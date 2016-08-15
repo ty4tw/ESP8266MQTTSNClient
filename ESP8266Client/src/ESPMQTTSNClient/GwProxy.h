@@ -68,6 +68,7 @@ public:
 	~GwProxy();
 
 	void     initialize(NETCONF netconf, MqttsnConfig mqconf);
+	void     networkClose(void);
 	void     connect(void);
 	void     disconnect(uint16_t sec = 0);
 	void     close(void);

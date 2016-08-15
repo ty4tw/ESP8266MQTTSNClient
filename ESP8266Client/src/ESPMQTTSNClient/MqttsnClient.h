@@ -74,6 +74,7 @@ public:
     void initialize(NETCONF netconf, MqttsnConfig mqconf);
     void run(void);
     int  sleep(void);
+    void networkClose(void);
     void registerInt0Callback(void (*callback)());
     void addTask(void);
     void setSleepMode(bool mode);
