@@ -9,17 +9,21 @@ NETWORK_CONFIG  = {
 };
 
 /* WiFi parameters */
-const char* theSsid   = "SSID";
-const char* thePasswd = "PASSWORD";
+AP_LIST = {
+    {"SSID1", "PASSWD1"},
+    {"SSID2", "PASSWD2"},
+    END_OF_AP_LIST
+};
 
 /* SNTP parameters */
 const char* theSNTPserver   = "ntp.nict.jp";
 int         theSNTPinterval = 3600; //secs
+int         theTimeDifference = +9;
 
 /* OTA parameters */
 int         theOTATimeout = 60;     //secs
 const char* theOTAPasswd  = "1234";
-uint16_t    theOTAportNo  = 8266;
+int         theOTAportNo  = 8266;
 
 extern MqttsnClient* theClient;
 /* end of config */

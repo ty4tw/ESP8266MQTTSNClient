@@ -40,7 +40,7 @@
 /*======================================
  *         Debug Flag
  ======================================*/
-//#define DEBUG_NW
+#define DEBUG_NW
 #define DEBUG_MQTTSN
 #define DEBUG_OTA
 //#define DEBUG_FUNC
@@ -78,6 +78,11 @@ struct UdpConfig{
 	uint16_t uPortNo;
 };
 
+struct AccessPoint {
+	const char* ssid;
+	const char* passwd;
+};
+
 typedef UdpConfig NETCONF;
 /*======================================
       MACROs for Application
@@ -97,6 +102,9 @@ typedef UdpConfig NETCONF;
 #define SUBSCRIBE_LIST    OnPublishList theOnPublishList[]
 #define SUB(...)          {__VA_ARGS__}
 #define END_OF_SUBSCRIBE_LIST {0,0,0}
+
+#define AP_LIST      AccessPoint theAPList[]
+#define END_OF_AP_LIST    {0, 0}
 
 #define INDICATOR_ON(...)   theClient->indicator(__VA_ARGS__)
 #ifdef DEBUG_FUNC

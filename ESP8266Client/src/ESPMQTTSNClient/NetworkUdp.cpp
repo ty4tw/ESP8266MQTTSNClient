@@ -40,7 +40,7 @@ extern uint16_t getUint16(const uint8_t* pos);
 extern uint32_t getUint32(const uint8_t* pos);
 extern const char* theSsid;
 extern const char* thePasswd;
-
+extern AccessPoint theAPList[];
 /*=========================================
        Class Network
  =========================================*/
@@ -134,18 +134,27 @@ bool UdpPort::open(UdpConfig config){
 	_uPortNo = config.uPortNo;
 
 
-	if ( WiFi.status() != WL_CONNECTED)
+	while ( WiFi.status() != WL_CONNECTED)
 	{
-		D_NWLOG("\nUdpPort::WiFi Attempting to connect.\n");
-		WiFi.mode(WIFI_STA);
-		WiFi.begin(theSsid, thePasswd);
+		for ( uint8_t i = 0; theAPList[i].ssid > 0; i++)
+		{
+			D_NWLOG("\nUdpPort::WiFi Attempting to connect %s.\n", theAPList[i].ssid);
+			WiFi.mode(WIFI_STA);
+			WiFi.begin(theAPList[i].ssid, theAPList[i].passwd);
+			uint8_t  timeout = 60;   // 30 secs
+			while (timeout-- > 0)
+			{
+				if ( WiFi.status() == WL_CONNECTED)
+				{
+					goto connected;
+				}
+				delay(500);
+				D_NWLOG(".");
+			}
+		}
 	}
 
-	while (WiFi.status() != WL_CONNECTED)
-	{
-		delay(500);
-		D_NWLOG(".");
-	}
+connected:
 	D_NWLOG("UdpPort::WiFi Connected\n");
 
 	_cIpAddr = WiFi.localIP();

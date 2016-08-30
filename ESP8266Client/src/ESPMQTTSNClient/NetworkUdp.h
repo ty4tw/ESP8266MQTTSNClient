@@ -49,6 +49,7 @@
 using namespace std;
 
 namespace ESP8266MQTTSNClient {
+
 /*========================================
        Class UpdPort
  =======================================*/
